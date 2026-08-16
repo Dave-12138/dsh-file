@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="dsh-file hero — a VS Code-style file manager plugin for DeepSeek Harness Web">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="380" viewBox="0 0 1280 380" role="img" aria-label="dsh-file — VS Code 风格文件管理器：左侧文件树，中间 Monaco 编辑器">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#16171c"/>
@@ -10,85 +10,140 @@
     </linearGradient>
   </defs>
 
-  <rect width="1280" height="360" fill="url(#bg)"/>
+  <rect width="1280" height="380" fill="url(#bg)"/>
   <rect width="1280" height="5" fill="url(#accent)"/>
 
   <!-- subtle dot grid -->
   <g fill="#ffffff" opacity="0.04">
-    <circle cx="40" cy="40" r="2"/><circle cx="120" cy="40" r="2"/><circle cx="200" cy="40" r="2"/>
-    <circle cx="280" cy="40" r="2"/><circle cx="360" cy="40" r="2"/><circle cx="440" cy="40" r="2"/>
-    <circle cx="520" cy="40" r="2"/><circle cx="600" cy="40" r="2"/><circle cx="680" cy="40" r="2"/>
-    <circle cx="760" cy="40" r="2"/><circle cx="840" cy="40" r="2"/><circle cx="920" cy="40" r="2"/>
-    <circle cx="1000" cy="40" r="2"/><circle cx="1080" cy="40" r="2"/><circle cx="1160" cy="40" r="2"/>
-    <circle cx="1240" cy="40" r="2"/><circle cx="40" cy="120" r="2"/><circle cx="120" cy="120" r="2"/>
-    <circle cx="200" cy="120" r="2"/><circle cx="280" cy="120" r="2"/><circle cx="360" cy="120" r="2"/>
-    <circle cx="440" cy="120" r="2"/><circle cx="520" cy="120" r="2"/><circle cx="600" cy="120" r="2"/>
-    <circle cx="680" cy="120" r="2"/><circle cx="760" cy="120" r="2"/><circle cx="840" cy="120" r="2"/>
-    <circle cx="920" cy="120" r="2"/><circle cx="1000" cy="120" r="2"/><circle cx="1080" cy="120" r="2"/>
-    <circle cx="1160" cy="120" r="2"/><circle cx="1240" cy="120" r="2"/><circle cx="40" cy="200" r="2"/>
-    <circle cx="120" cy="200" r="2"/><circle cx="200" cy="200" r="2"/><circle cx="280" cy="200" r="2"/>
-    <circle cx="360" cy="200" r="2"/><circle cx="440" cy="200" r="2"/><circle cx="520" cy="200" r="2"/>
-    <circle cx="600" cy="200" r="2"/><circle cx="680" cy="200" r="2"/><circle cx="760" cy="200" r="2"/>
-    <circle cx="840" cy="200" r="2"/><circle cx="920" cy="200" r="2"/><circle cx="1000" cy="200" r="2"/>
-    <circle cx="1080" cy="200" r="2"/><circle cx="1160" cy="200" r="2"/><circle cx="1240" cy="200" r="2"/>
-    <circle cx="40" cy="280" r="2"/><circle cx="120" cy="280" r="2"/><circle cx="200" cy="280" r="2"/>
-    <circle cx="280" cy="280" r="2"/><circle cx="360" cy="280" r="2"/><circle cx="440" cy="280" r="2"/>
-    <circle cx="520" cy="280" r="2"/><circle cx="600" cy="280" r="2"/><circle cx="680" cy="280" r="2"/>
-    <circle cx="760" cy="280" r="2"/><circle cx="840" cy="280" r="2"/><circle cx="920" cy="280" r="2"/>
-    <circle cx="1000" cy="280" r="2"/><circle cx="1080" cy="280" r="2"/><circle cx="1160" cy="280" r="2"/>
-    <circle cx="1240" cy="280" r="2"/><circle cx="40" cy="340" r="2"/><circle cx="120" cy="340" r="2"/>
-    <circle cx="200" cy="340" r="2"/><circle cx="280" cy="340" r="2"/><circle cx="360" cy="340" r="2"/>
-    <circle cx="440" cy="340" r="2"/><circle cx="520" cy="340" r="2"/><circle cx="600" cy="340" r="2"/>
-    <circle cx="680" cy="340" r="2"/><circle cx="760" cy="340" r="2"/><circle cx="840" cy="340" r="2"/>
-    <circle cx="920" cy="340" r="2"/><circle cx="1000" cy="340" r="2"/><circle cx="1080" cy="340" r="2"/>
-    <circle cx="1160" cy="340" r="2"/><circle cx="1240" cy="340" r="2"/>
+    <circle cx="60" cy="60" r="2"/><circle cx="160" cy="60" r="2"/><circle cx="260" cy="60" r="2"/>
+    <circle cx="360" cy="60" r="2"/><circle cx="460" cy="60" r="2"/><circle cx="560" cy="60" r="2"/>
+    <circle cx="660" cy="60" r="2"/><circle cx="760" cy="60" r="2"/><circle cx="860" cy="60" r="2"/>
+    <circle cx="960" cy="60" r="2"/><circle cx="1060" cy="60" r="2"/><circle cx="1160" cy="60" r="2"/>
+    <circle cx="1260" cy="60" r="2"/><circle cx="60" cy="150" r="2"/><circle cx="160" cy="150" r="2"/>
+    <circle cx="260" cy="150" r="2"/><circle cx="360" cy="150" r="2"/><circle cx="460" cy="150" r="2"/>
+    <circle cx="560" cy="150" r="2"/><circle cx="660" cy="150" r="2"/><circle cx="760" cy="150" r="2"/>
+    <circle cx="860" cy="150" r="2"/><circle cx="960" cy="150" r="2"/><circle cx="1060" cy="150" r="2"/>
+    <circle cx="1160" cy="150" r="2"/><circle cx="1260" cy="150" r="2"/><circle cx="60" cy="240" r="2"/>
+    <circle cx="160" cy="240" r="2"/><circle cx="260" cy="240" r="2"/><circle cx="360" cy="240" r="2"/>
+    <circle cx="460" cy="240" r="2"/><circle cx="560" cy="240" r="2"/><circle cx="660" cy="240" r="2"/>
+    <circle cx="760" cy="240" r="2"/><circle cx="860" cy="240" r="2"/><circle cx="960" cy="240" r="2"/>
+    <circle cx="1060" cy="240" r="2"/><circle cx="1160" cy="240" r="2"/><circle cx="1260" cy="240" r="2"/>
+    <circle cx="60" cy="330" r="2"/><circle cx="160" cy="330" r="2"/><circle cx="260" cy="330" r="2"/>
+    <circle cx="360" cy="330" r="2"/><circle cx="460" cy="330" r="2"/><circle cx="560" cy="330" r="2"/>
+    <circle cx="660" cy="330" r="2"/><circle cx="760" cy="330" r="2"/><circle cx="860" cy="330" r="2"/>
+    <circle cx="960" cy="330" r="2"/><circle cx="1060" cy="330" r="2"/><circle cx="1160" cy="330" r="2"/>
+    <circle cx="1260" cy="330" r="2"/>
   </g>
 
-  <!-- title block -->
-  <text x="640" y="86" text-anchor="middle" font-family="sans-serif" font-size="54" font-weight="700" fill="#f5f7fa">dsh-file</text>
-  <text x="640" y="124" text-anchor="middle" font-family="sans-serif" font-size="19" fill="#aeb6c2">VS Code-style file manager for DeepSeek Harness Web</text>
+  <!-- ══ app window mockup (light, matches the plugin UI) ══ -->
+  <g>
+    <!-- window frame -->
+    <rect x="90" y="36" width="1100" height="284" rx="12" fill="#ffffff" stroke="#000000" stroke-opacity="0.3"/>
 
-  <!-- pill -->
-  <g transform="translate(640, 160)">
-    <rect x="-132" y="-17" width="264" height="34" rx="17" fill="#4dabf7" fill-opacity="0.14" stroke="#4dabf7" stroke-opacity="0.5"/>
-    <circle cx="-106" cy="0" r="5" fill="#4dabf7"/>
-    <text x="-92" y="5" font-family="sans-serif" font-size="14" fill="#8ecbff">DeepSeek Harness Plugin</text>
-  </g>
+    <!-- title bar -->
+    <rect x="90" y="36" width="1100" height="40" rx="12" fill="#f3f3f3"/>
+    <rect x="90" y="60" width="1100" height="16" fill="#f3f3f3"/>
+    <text x="110" y="62" font-family="sans-serif" font-size="13" fill="#6b7280">dsh-file · DeepSeek Harness Web</text>
 
-  <!-- left: file tree card -->
-  <g transform="translate(72, 208)">
-    <rect width="320" height="122" rx="10" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.09"/>
-    <text x="14" y="24" font-family="sans-serif" font-size="11" letter-spacing="1" fill="#8b93a1">EXPLORER</text>
-    <g font-family="sans-serif" font-size="12" fill="#c9d1d9">
-      <rect x="14" y="38" width="11" height="11" rx="2" fill="#e2b93d"/>
-      <text x="32" y="48">dsh-file</text>
-      <rect x="28" y="58" width="11" height="11" rx="2" fill="#e2b93d"/>
-      <text x="46" y="68">src</text>
-      <rect x="42" y="78" width="11" height="11" rx="2" fill="#4dabf7"/>
-      <text x="60" y="88">index.ts</text>
-      <rect x="42" y="94" width="11" height="11" rx="2" fill="#e2b93d"/>
-      <text x="60" y="104">client</text>
-      <rect x="56" y="108" width="11" height="11" rx="2" fill="#9d7bfa"/>
-      <text x="74" y="118">FileEditorView.tsx</text>
+    <!-- view tabs (对话 / 轨迹 / 文件) -->
+    <g font-family="sans-serif" font-size="12">
+      <rect x="968" y="46" width="52" height="22" rx="6" fill="none" stroke="#d0d0d0"/>
+      <text x="994" y="61" fill="#495057">对话</text>
+      <rect x="1028" y="46" width="52" height="22" rx="6" fill="none" stroke="#d0d0d0"/>
+      <text x="1054" y="61" fill="#495057">轨迹</text>
+      <rect x="1088" y="46" width="52" height="22" rx="6" fill="#094771"/>
+      <text x="1114" y="61" fill="#ffffff">文件</text>
+    </g>
+
+    <!-- sidebar (file tree) -->
+    <rect x="90" y="76" width="250" height="244" fill="#fafafa"/>
+    <line x1="340" y1="76" x2="340" y2="320" stroke="#e0e0e0"/>
+
+    <!-- sidebar header -->
+    <text x="104" y="96" font-family="sans-serif" font-size="12" font-weight="700" fill="#1f2328">文件</text>
+    <g font-family="sans-serif" font-size="10">
+      <rect x="146" y="86" width="46" height="16" rx="4" fill="#ececec" stroke="#d0d0d0"/>
+      <text x="155" y="98" fill="#495057">＋文件</text>
+      <rect x="196" y="86" width="46" height="16" rx="4" fill="#ececec" stroke="#d0d0d0"/>
+      <text x="205" y="98" fill="#495057">＋目录</text>
+    </g>
+    <line x1="90" y1="110" x2="340" y2="110" stroke="#ececec"/>
+
+    <!-- tree rows -->
+    <g font-family="sans-serif" font-size="11" fill="#495057">
+      <rect x="104" y="114" width="9" height="9" rx="2" fill="#e2b93d"/>
+      <text x="120" y="122">dsh-file</text>
+      <rect x="118" y="133" width="9" height="9" rx="2" fill="#e2b93d"/>
+      <text x="134" y="141">src</text>
+      <rect x="132" y="152" width="9" height="9" rx="2" fill="#4dabf7"/>
+      <text x="148" y="160">index.ts</text>
+      <rect x="132" y="171" width="9" height="9" rx="2" fill="#e2b93d"/>
+      <text x="148" y="179">client</text>
+      <rect x="146" y="190" width="9" height="9" rx="2" fill="#9d7bfa"/>
+      <text x="162" y="198">FileEditorView.tsx</text>
+      <rect x="146" y="209" width="9" height="9" rx="2" fill="#2f9e44"/>
+      <text x="162" y="217">themeStore.ts</text>
+      <rect x="146" y="228" width="9" height="9" rx="2" fill="#f783ac"/>
+      <text x="162" y="236">styles.css</text>
+      <rect x="118" y="247" width="9" height="9" rx="2" fill="#e2b93d"/>
+      <text x="134" y="255">dist</text>
+      <rect x="118" y="266" width="9" height="9" rx="2" fill="#f76707"/>
+      <text x="134" y="274">package.json</text>
+    </g>
+
+    <!-- main editor column -->
+    <rect x="340" y="76" width="850" height="244" fill="#ffffff"/>
+
+    <!-- editor tab strip (open files, left-aligned, with ✕) -->
+    <rect x="340" y="76" width="850" height="30" fill="#f3f3f3"/>
+    <g font-family="sans-serif" font-size="11">
+      <rect x="350" y="80" width="188" height="22" rx="5" fill="#ffffff" stroke="#094771"/>
+      <text x="360" y="95" fill="#1f2328" font-weight="600">● FileEditorView.tsx</text>
+      <text x="524" y="95" fill="#6b7280">✕</text>
+      <rect x="546" y="80" width="86" height="22" rx="5" fill="#ececec"/>
+      <text x="556" y="95" fill="#495057">index.tsx</text>
+      <text x="622" y="95" fill="#868e96">✕</text>
+      <rect x="640" y="80" width="118" height="22" rx="5" fill="#ececec"/>
+      <text x="650" y="95" fill="#495057">themeStore.ts</text>
+      <text x="748" y="95" fill="#868e96">✕</text>
+      <rect x="1088" y="80" width="52" height="22" rx="5" fill="#ececec" stroke="#d0d0d0"/>
+      <text x="1101" y="95" fill="#1f2328">主题</text>
+    </g>
+    <line x1="340" y1="106" x2="1190" y2="106" stroke="#e0e0e0"/>
+
+    <!-- code area (Monaco-like) -->
+    <g font-family="monospace" font-size="12">
+      <text x="356" y="132" fill="#c678dd">import</text>
+      <text x="404" y="132" fill="#61afef">{ useEditorTheme }</text>
+      <text x="488" y="132" fill="#abb2bf">from</text>
+      <text x="520" y="132" fill="#98c379">'./themeStore'</text>
+      <text x="356" y="176" fill="#c678dd">export function</text>
+      <text x="452" y="176" fill="#e5c07b">FileEditorView</text>
+      <text x="548" y="176" fill="#abb2bf">({ remote }) {</text>
+      <text x="372" y="198" fill="#c678dd">const</text>
+      <text x="408" y="198" fill="#61afef">theme</text>
+      <text x="448" y="198" fill="#abb2bf">=</text>
+      <text x="460" y="198" fill="#61afef">useEditorTheme</text>
+      <text x="564" y="198" fill="#abb2bf">()</text>
+      <text x="372" y="220" fill="#c678dd">return</text>
+      <text x="420" y="220" fill="#abb2bf">(</text>
+      <text x="388" y="242" fill="#abb2bf">&lt;div className=</text>
+      <text x="504" y="242" fill="#98c379">"dshf-editor-view"</text>
+      <text x="652" y="242" fill="#abb2bf">&gt;…&lt;/div&gt;</text>
+      <text x="388" y="264" fill="#abb2bf">)</text>
+      <text x="372" y="286" fill="#abb2bf">}</text>
+    </g>
+
+    <!-- editor status bar -->
+    <rect x="340" y="296" width="850" height="24" fill="#f3f3f3"/>
+    <g font-family="sans-serif" font-size="11" fill="#6b7280">
+      <text x="356" y="312">行 8, 列 22</text>
+      <text x="440" y="312">UTF-8</text>
+      <text x="1070" y="312">保存 Ctrl+S</text>
     </g>
   </g>
 
-  <!-- right: editor mock card -->
-  <g transform="translate(888, 208)">
-    <rect width="320" height="122" rx="10" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.09"/>
-    <g>
-      <rect x="14" y="16" width="160" height="8" rx="4" fill="#7ee787" fill-opacity="0.85"/>
-      <rect x="14" y="32" width="40" height="8" rx="4" fill="#4dabf7"/>
-      <rect x="58" y="32" width="120" height="8" rx="4" fill="#c9d1d9" fill-opacity="0.7"/>
-      <rect x="14" y="48" width="30" height="8" rx="4" fill="#4dabf7"/>
-      <rect x="48" y="48" width="180" height="8" rx="4" fill="#c9d1d9" fill-opacity="0.7"/>
-      <rect x="14" y="64" width="70" height="8" rx="4" fill="#e2b93d"/>
-      <rect x="88" y="64" width="110" height="8" rx="4" fill="#c9d1d9" fill-opacity="0.7"/>
-      <rect x="14" y="80" width="200" height="8" rx="4" fill="#c9d1d9" fill-opacity="0.7"/>
-      <rect x="14" y="96" width="150" height="8" rx="4" fill="#9d7bfa" fill-opacity="0.8"/>
-    </g>
-  </g>
-
-  <!-- bottom accent strip -->
-  <rect y="355" width="1280" height="5" fill="url(#accent)"/>
+  <!-- caption -->
+  <text x="640" y="350" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="700" fill="#f5f7fa">dsh-file</text>
+  <text x="640" y="370" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#aeb6c2">VS Code-style file manager for DeepSeek Harness Web</text>
 </svg>
