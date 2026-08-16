@@ -1,7 +1,7 @@
 {
   "name": "dsh-file",
   "version": "0.1.0",
-  "description": "A VS Code-style file manager for the DeepSeek Harness Web sidebar: browse, open, edit, create, rename, and delete files in the current conversation's workspace.",
+  "description": "A VS Code-style file manager plugin for DeepSeek Harness Web — DeepSeek Harness 的 VS Code 风格文件管理器插件（浏览、打开、编辑当前对话工作区的文件）.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/types/index.d.ts",

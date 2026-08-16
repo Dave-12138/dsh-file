@@ -62,7 +62,8 @@ var TYPERT_REMOTE = {
     direct("delete", ["path"]),
     direct("stat", ["path"]),
     direct("resolve", ["path"]),
-    direct("getRoot", [])
+    direct("getRoot", []),
+    direct("setRoot", ["path"])
   ]
 };
 function unwrap(result) {
@@ -74,41 +75,7 @@ function unwrap(result) {
 }
 
 // src/client/FileManagerPanel.tsx
-var import_react2 = require("react");
-
-// src/client/monaco.ts
-var MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs";
-var loading = null;
-var failed = false;
-function loadLoader() {
-  return new Promise((resolve, reject) => {
-    const el = document.createElement("script");
-    el.src = `${MONACO_BASE}/loader.js`;
-    el.async = true;
-    el.addEventListener("load", () => resolve());
-    el.addEventListener("error", () => reject(new Error("failed to load monaco loader")));
-    document.head.append(el);
-  });
-}
-function ensureMonaco() {
-  if (failed) return Promise.reject(new Error("monaco previously failed to load"));
-  if (loading) return loading;
-  loading = (async () => {
-    try {
-      await loadLoader();
-      await new Promise((resolve, reject) => {
-        window.require.config({ paths: { vs: MONACO_BASE } });
-        window.require(["vs/editor/editor.main"], () => resolve(), (err) => reject(err));
-      });
-      return window.monaco;
-    } catch (error) {
-      failed = true;
-      loading = null;
-      throw error;
-    }
-  })();
-  return loading;
-}
+var import_react3 = require("react");
 
 // src/client/FileTree.tsx
 var import_react = require("react");
@@ -232,25 +199,114 @@ function DirChildren({ node, depth, onRender, onLoad }) {
   return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: onRender(node.path, node.entries, depth) });
 }
 
+// src/client/store.ts
+var import_react2 = require("react");
+var tabs = [];
+var activePath = null;
+var listeners = /* @__PURE__ */ new Set();
+function emit() {
+  for (const listener of listeners) listener();
+}
+function subscribe(listener) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+function snapshot() {
+  return tabs;
+}
+function snapshotActive() {
+  return activePath;
+}
+function useTabs() {
+  return (0, import_react2.useSyncExternalStore)(subscribe, snapshot);
+}
+function useActivePath() {
+  return (0, import_react2.useSyncExternalStore)(subscribe, snapshotActive);
+}
+function openTab(tab) {
+  const existing = tabs.find((t) => t.path === tab.path);
+  if (existing) {
+    activePath = tab.path;
+  } else {
+    tabs = [...tabs, tab];
+    activePath = tab.path;
+  }
+  emit();
+}
+function focusTab(path) {
+  if (tabs.some((t) => t.path === path)) {
+    activePath = path;
+    emit();
+  }
+}
+function updateActiveContent(content) {
+  if (activePath === null) return;
+  tabs = tabs.map((t) => t.path === activePath ? { ...t, content, dirty: content !== t.savedContent } : t);
+  emit();
+}
+function markSaved(path) {
+  tabs = tabs.map((t) => t.path === path ? { ...t, savedContent: t.content, dirty: false } : t);
+  emit();
+}
+function closeTab(path) {
+  tabs = tabs.filter((t) => t.path !== path);
+  if (activePath === path) {
+    activePath = tabs.length > 0 ? tabs[tabs.length - 1].path : null;
+  }
+  emit();
+}
+function renameTab(from, to) {
+  tabs = tabs.map((t) => t.path === from ? { ...t, path: to } : t);
+  if (activePath === from) activePath = to;
+  emit();
+}
+function removeTabs(paths) {
+  const gone = new Set(paths);
+  tabs = tabs.filter((t) => !gone.has(t.path));
+  if (activePath !== null && gone.has(activePath)) {
+    activePath = tabs.length > 0 ? tabs[tabs.length - 1].path : null;
+  }
+  emit();
+}
+function closeEditor() {
+  activePath = null;
+  emit();
+}
+function resetAll() {
+  tabs = [];
+  activePath = null;
+  emit();
+}
+
 // src/client/FileManagerPanel.tsx
 var import_jsx_runtime2 = require("react/jsx-runtime");
 function cx2(...parts) {
   return parts.filter(Boolean).join(" ");
 }
-function FileManagerPanel({ remote, onClose }) {
-  const [root, setRoot] = (0, import_react2.useState)(null);
-  const [rootError, setRootError] = (0, import_react2.useState)(null);
-  const [tabs, setTabs] = (0, import_react2.useState)([]);
-  const [activePath, setActivePath] = (0, import_react2.useState)(null);
-  const [busy, setBusy] = (0, import_react2.useState)(false);
-  const [notice, setNotice] = (0, import_react2.useState)(null);
-  const treeRef = (0, import_react2.useRef)(null);
-  (0, import_react2.useEffect)(() => {
+function FileManagerPanel({ remote, onClose, useSessions }) {
+  const [root, setRoot] = (0, import_react3.useState)(null);
+  const [rootError, setRootError] = (0, import_react3.useState)(null);
+  const [busy, setBusy] = (0, import_react3.useState)(false);
+  const [notice, setNotice] = (0, import_react3.useState)(null);
+  const treeRef = (0, import_react3.useRef)(null);
+  const sessionCwd = useSessions ? useSessions((s) => s.current !== void 0 ? s.byId[s.current]?.cwd : void 0) : void 0;
+  (0, import_react3.useEffect)(() => {
     let cancelled = false;
     (async () => {
       try {
+        if (sessionCwd !== void 0) {
+          try {
+            await unwrap(await remote.setRoot(sessionCwd));
+          } catch {
+          }
+        }
         const { path } = unwrap(await remote.getRoot());
-        if (!cancelled) setRoot(path);
+        if (!cancelled) {
+          setRoot(path);
+          setRootError(null);
+        }
       } catch (error) {
         if (!cancelled) setRootError(error instanceof Error ? error.message : String(error));
       }
@@ -258,62 +314,28 @@ function FileManagerPanel({ remote, onClose }) {
     return () => {
       cancelled = true;
     };
-  }, [remote]);
-  const activeTab = (0, import_react2.useMemo)(
-    () => activePath === null ? void 0 : tabs.find((t) => t.path === activePath),
-    [tabs, activePath]
-  );
-  const openFile = (0, import_react2.useCallback)(
+  }, [remote, sessionCwd]);
+  (0, import_react3.useEffect)(() => () => {
+    resetAll();
+  }, []);
+  const handleNotice = (0, import_react3.useCallback)((message) => {
+    setNotice(message);
+  }, []);
+  const openFile = (0, import_react3.useCallback)(
     async (path) => {
       setBusy(true);
       try {
-        const existing = tabs.find((t) => t.path === path);
-        if (existing) {
-          setActivePath(path);
-          return;
-        }
         const value = unwrap(await remote.readText(path));
-        setTabs((prev) => [
-          ...prev,
-          { path, content: value.content, savedContent: value.content, mtimeMs: value.mtimeMs, dirty: false }
-        ]);
-        setActivePath(path);
+        openTab({ path, content: value.content, savedContent: value.content, mtimeMs: value.mtimeMs, dirty: false });
       } catch (error) {
-        setNotice(`\u6253\u5F00\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+        handleNotice(`\u6253\u5F00\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         setBusy(false);
       }
     },
-    [remote, tabs]
+    [remote, handleNotice]
   );
-  const updateContent = (0, import_react2.useCallback)((content) => {
-    setTabs((prev) => prev.map((t) => t.path === activePath ? { ...t, content, dirty: content !== t.savedContent } : t));
-  }, [activePath]);
-  const saveActive = (0, import_react2.useCallback)(async () => {
-    if (activeTab === void 0 || !activeTab.dirty) return;
-    setBusy(true);
-    try {
-      await unwrap(await remote.writeText(activeTab.path, activeTab.content));
-      setTabs((prev) => prev.map((t) => t.path === activeTab.path ? { ...t, savedContent: t.content, dirty: false } : t));
-      setNotice(`\u5DF2\u4FDD\u5B58 ${activeTab.path.split("/").pop()}`);
-      treeRef.current?.refresh();
-    } catch (error) {
-      setNotice(`\u4FDD\u5B58\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setBusy(false);
-    }
-  }, [activeTab, remote, treeRef]);
-  const closeActive = (0, import_react2.useCallback)(() => {
-    if (activeTab === void 0) return;
-    if (activeTab.dirty && !window.confirm(`\u653E\u5F03\u5BF9 ${activeTab.path} \u7684\u672A\u4FDD\u5B58\u4FEE\u6539\uFF1F`)) return;
-    setTabs((prev) => prev.filter((t) => t.path !== activeTab.path));
-    setActivePath((current) => {
-      if (current === null) return null;
-      const remaining = tabs.filter((t) => t.path !== current);
-      return remaining.length > 0 ? remaining[remaining.length - 1].path : null;
-    });
-  }, [activeTab, tabs]);
-  const handleCreate = (0, import_react2.useCallback)(
+  const handleCreate = (0, import_react3.useCallback)(
     async (kind) => {
       const cwd = treeRef.current?.cwd() ?? root ?? "";
       const name = window.prompt(kind === "directory" ? "\u65B0\u5EFA\u76EE\u5F55\u540D\u79F0:" : "\u65B0\u5EFA\u6587\u4EF6\u540D\u79F0:");
@@ -327,16 +349,16 @@ function FileManagerPanel({ remote, onClose }) {
           await openFile(target);
         }
         treeRef.current?.refresh();
-        setNotice(kind === "directory" ? `\u5DF2\u521B\u5EFA\u76EE\u5F55 ${name}` : `\u5DF2\u521B\u5EFA\u6587\u4EF6 ${name}`);
+        handleNotice(kind === "directory" ? `\u5DF2\u521B\u5EFA\u76EE\u5F55 ${name}` : `\u5DF2\u521B\u5EFA\u6587\u4EF6 ${name}`);
       } catch (error) {
-        setNotice(`\u521B\u5EFA\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+        handleNotice(`\u521B\u5EFA\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         setBusy(false);
       }
     },
-    [remote, root, openFile, treeRef]
+    [remote, root, openFile, handleNotice]
   );
-  const handleRename = (0, import_react2.useCallback)(
+  const handleRename = (0, import_react3.useCallback)(
     async (from) => {
       const name = window.prompt("\u91CD\u547D\u540D\u4E3A:", from.split("/").pop() ?? "");
       if (!name || name === from.split("/").pop()) return;
@@ -344,91 +366,529 @@ function FileManagerPanel({ remote, onClose }) {
       setBusy(true);
       try {
         await unwrap(await remote.rename(from, to));
-        setTabs((prev) => prev.map((t) => t.path === from ? { ...t, path: to } : t));
-        if (activePath === from) setActivePath(to);
+        renameTab(from, to);
         treeRef.current?.refresh();
-        setNotice(`\u5DF2\u91CD\u547D\u540D ${name}`);
+        handleNotice(`\u5DF2\u91CD\u547D\u540D ${name}`);
       } catch (error) {
-        setNotice(`\u91CD\u547D\u540D\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+        handleNotice(`\u91CD\u547D\u540D\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         setBusy(false);
       }
     },
-    [remote, activePath, treeRef]
+    [remote, handleNotice]
   );
-  const handleDelete = (0, import_react2.useCallback)(
+  const handleDelete = (0, import_react3.useCallback)(
     async (path) => {
       if (!window.confirm(`\u786E\u5B9A\u5220\u9664 ${path}\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\u3002`)) return;
       setBusy(true);
       try {
         await unwrap(await remote.delete(path));
-        setTabs((prev) => prev.filter((t) => t.path !== path));
-        if (activePath === path) setActivePath(null);
+        removeTabs([path]);
         treeRef.current?.refresh();
-        setNotice(`\u5DF2\u5220\u9664`);
+        handleNotice("\u5DF2\u5220\u9664");
       } catch (error) {
-        setNotice(`\u5220\u9664\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+        handleNotice(`\u5220\u9664\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         setBusy(false);
       }
     },
-    [remote, activePath, treeRef]
+    [remote, handleNotice]
   );
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-root", onKeyDown: (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-      e.preventDefault();
-      void saveActive();
-    }
-  }, children: [
+  const title = (0, import_react3.useMemo)(() => {
+    if (root === null) return "\u2026";
+    return root.split("/").filter(Boolean).pop() || "/";
+  }, [root]);
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-root", children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-toolbar", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dshf-title", title: root ?? "", children: root ? root.split("/").filter(Boolean).pop() || "/" : "\u2026" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dshf-title", title: root ?? "", children: title }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dshf-spacer" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dshf-btn", title: "\u65B0\u5EFA\u6587\u4EF6", onClick: () => void handleCreate("file"), children: "\uFF0B\u6587\u4EF6" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dshf-btn", title: "\u65B0\u5EFA\u76EE\u5F55", onClick: () => void handleCreate("directory"), children: "\uFF0B\u76EE\u5F55" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dshf-btn", title: "\u4FDD\u5B58 (Ctrl+S)", disabled: activeTab === void 0 || !activeTab.dirty, onClick: () => void saveActive(), children: "\u4FDD\u5B58" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dshf-btn", title: "\u5173\u95ED\u6587\u4EF6\u7BA1\u7406\u5668", onClick: onClose, children: "\u2715" })
     ] }),
     rootError !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dshf-error", children: rootError }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-body", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dshf-tree", children: root !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-        FileTree,
-        {
-          ref: treeRef,
-          remote,
-          root,
-          onOpenFile: (p) => void openFile(p),
-          onRename: (p) => void handleRename(p),
-          onDelete: (p) => void handleDelete(p)
-        }
-      ) }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dshf-editor", children: activeTab === void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dshf-empty", children: "\u9009\u62E9\u5DE6\u4FA7\u6587\u4EF6\u4EE5\u67E5\u770B\u6216\u7F16\u8F91" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-        EditorPane,
-        {
-          path: activeTab.path,
-          content: activeTab.content,
-          dirty: activeTab.dirty,
-          onChange: updateContent
-        },
-        activeTab.path
-      ) })
-    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dshf-tree-pane", children: root !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      FileTree,
+      {
+        ref: treeRef,
+        remote,
+        root,
+        onOpenFile: (p) => void openFile(p),
+        onRename: (p) => void handleRename(p),
+        onDelete: (p) => void handleDelete(p)
+      }
+    ) }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-status", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dshf-status-busy", children: busy ? "\u2026" : "" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: cx2("dshf-status-notice", notice === null && "dshf-hidden"), children: notice ?? "" }),
-      activeTab !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dshf-status-path", title: activeTab.path, children: activeTab.path })
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dshf-spacer" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dshf-status-hint", children: "\u70B9\u6587\u4EF6\u540E\u5728\u4E0A\u65B9\u300C\u6587\u4EF6\u300D\u6807\u7B7E\u4E2D\u7F16\u8F91" })
     ] })
   ] });
 }
-function EditorPane({ path, content, dirty, onChange }) {
-  const [mode, setMode] = (0, import_react2.useState)("loading");
-  const [monacoLib, setMonacoLib] = (0, import_react2.useState)(null);
-  const hostRef = (0, import_react2.useRef)(null);
-  const editorRef = (0, import_react2.useRef)(null);
-  const onChangeRef = (0, import_react2.useRef)(onChange);
+
+// src/client/FileEditorView.tsx
+var import_react5 = require("react");
+
+// src/client/monaco.ts
+var MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs";
+var loading = null;
+var failed = false;
+function loadLoader() {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement("script");
+    el.src = `${MONACO_BASE}/loader.js`;
+    el.async = true;
+    el.addEventListener("load", () => resolve());
+    el.addEventListener("error", () => reject(new Error("failed to load monaco loader")));
+    document.head.append(el);
+  });
+}
+function ensureMonaco() {
+  if (failed) return Promise.reject(new Error("monaco previously failed to load"));
+  if (loading) return loading;
+  loading = (async () => {
+    try {
+      await loadLoader();
+      await new Promise((resolve, reject) => {
+        window.require.config({ paths: { vs: MONACO_BASE } });
+        window.require(["vs/editor/editor.main"], () => resolve(), (err) => reject(err));
+      });
+      return window.monaco;
+    } catch (error) {
+      failed = true;
+      loading = null;
+      throw error;
+    }
+  })();
+  return loading;
+}
+
+// src/client/themeStore.ts
+var import_react4 = require("react");
+var EDITOR_THEME_PRESETS = {
+  light: { background: "#ffffff", foreground: "#1f2328", fontSize: 13 },
+  dark: { background: "#1e1e1e", foreground: "#d4d4d4", fontSize: 13 },
+  "one-dark": { background: "#282c34", foreground: "#abb2bf", fontSize: 13 },
+  github: { background: "#ffffff", foreground: "#24292e", fontSize: 13 }
+};
+var EDITOR_THEME_PRESET_ORDER = ["light", "dark", "one-dark", "github"];
+var EDITOR_THEME_PRESET_LABELS = {
+  light: "\u6D45\u8272",
+  dark: "\u6DF1\u8272",
+  "one-dark": "One Dark",
+  github: "GitHub"
+};
+var DEFAULT_EDITOR_THEME = { ...EDITOR_THEME_PRESETS.light };
+function hexToRgb(hex) {
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const n = parseInt(h, 16);
+  if (Number.isNaN(n) || h.length !== 6) return [0, 0, 0];
+  return [n >> 16 & 255, n >> 8 & 255, n & 255];
+}
+function rgbToHex(r, g, b) {
+  const c = (x) => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, "0");
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
+function mixColors(a, b, amount) {
+  const [ar, ag, ab] = hexToRgb(a);
+  const [br, bg, bb] = hexToRgb(b);
+  return rgbToHex(ar + (br - ar) * amount, ag + (bg - ag) * amount, ab + (bb - ab) * amount);
+}
+function luminanceOf(hex) {
+  const [r, g, b] = hexToRgb(hex);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+function isLightColor(hex) {
+  return luminanceOf(hex) > 0.5;
+}
+function themeChrome(theme) {
+  const light = isLightColor(theme.background);
+  const chrome = mixColors(theme.background, light ? "#000000" : "#ffffff", light ? 0.06 : 0.08);
+  const border = mixColors(theme.background, light ? "#000000" : "#ffffff", light ? 0.22 : 0.18);
+  const muted = mixColors(theme.foreground, theme.background, 0.45);
+  const chip = mixColors(theme.background, light ? "#000000" : "#ffffff", light ? 0.05 : 0.06);
+  const dirty = light ? "#c2410c" : "#e2c08d";
+  return { chrome, border, muted, chip, dirty };
+}
+var STORAGE_KEY = "dsh-file:editor-theme:v2";
+var HEX6 = /^#[0-9a-f]{6}$/i;
+function load() {
+  try {
+    if (typeof localStorage !== "undefined") {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.background === "string" && HEX6.test(parsed.background) && typeof parsed?.foreground === "string" && HEX6.test(parsed.foreground)) {
+          return {
+            background: parsed.background.toLowerCase(),
+            foreground: parsed.foreground.toLowerCase(),
+            fontSize: typeof parsed.fontSize === "number" && parsed.fontSize > 0 ? parsed.fontSize : 13
+          };
+        }
+      }
+    }
+  } catch {
+  }
+  return { ...DEFAULT_EDITOR_THEME };
+}
+var current = load();
+var listeners2 = /* @__PURE__ */ new Set();
+function emit2() {
+  for (const listener of listeners2) listener();
+}
+function subscribe2(listener) {
+  listeners2.add(listener);
+  return () => {
+    listeners2.delete(listener);
+  };
+}
+function snapshot2() {
+  return current;
+}
+function useEditorTheme() {
+  return (0, import_react4.useSyncExternalStore)(subscribe2, snapshot2);
+}
+function setEditorTheme(partial) {
+  current = { ...current, ...partial };
+  try {
+    if (typeof localStorage !== "undefined") localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+  } catch {
+  }
+  emit2();
+}
+function resetEditorTheme() {
+  current = { ...DEFAULT_EDITOR_THEME };
+  try {
+    if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
+  } catch {
+  }
+  emit2();
+}
+function presetIdOf(theme) {
+  for (const [id, preset] of Object.entries(EDITOR_THEME_PRESETS)) {
+    if (preset.background === theme.background && preset.foreground === theme.foreground) return id;
+  }
+  return void 0;
+}
+function exportThemeText(theme, name) {
+  return JSON.stringify({
+    name,
+    type: "dsh-file-theme",
+    version: 1,
+    background: theme.background,
+    foreground: theme.foreground,
+    fontSize: theme.fontSize,
+    colors: {
+      "editor.background": theme.background,
+      "editor.foreground": theme.foreground
+    }
+  }, null, 2);
+}
+function parseImportedTheme(text) {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("\u6587\u4EF6\u4E0D\u662F\u6709\u6548\u7684 JSON");
+  }
+  if (typeof data !== "object" || data === null) throw new Error("JSON \u5185\u5BB9\u5FC5\u987B\u662F\u5BF9\u8C61");
+  const obj = data;
+  let background = typeof obj.background === "string" ? obj.background : void 0;
+  let foreground = typeof obj.foreground === "string" ? obj.foreground : void 0;
+  if ((background === void 0 || foreground === void 0) && typeof obj.colors === "object" && obj.colors !== null) {
+    const colors = obj.colors;
+    if (background === void 0) background = typeof colors["editor.background"] === "string" ? colors["editor.background"] : void 0;
+    if (foreground === void 0) foreground = typeof colors["editor.foreground"] === "string" ? colors["editor.foreground"] : void 0;
+  }
+  if (background === void 0 || !HEX6.test(background)) {
+    throw new Error('\u7F3A\u5C11\u6709\u6548\u7684\u80CC\u666F\u8272\uFF08background \u6216 colors["editor.background"]\uFF0C\u9700\u8981 #rrggbb\uFF09');
+  }
+  if (foreground === void 0 || !HEX6.test(foreground)) {
+    throw new Error('\u7F3A\u5C11\u6709\u6548\u7684\u6587\u5B57\u8272\uFF08foreground \u6216 colors["editor.foreground"]\uFF0C\u9700\u8981 #rrggbb\uFF09');
+  }
+  const fontSize = typeof obj.fontSize === "number" && obj.fontSize > 0 ? obj.fontSize : 13;
+  const name = typeof obj.name === "string" && obj.name.trim() ? obj.name.trim() : void 0;
+  return { name, background: background.toLowerCase(), foreground: foreground.toLowerCase(), fontSize };
+}
+
+// src/client/FileEditorView.tsx
+var import_jsx_runtime3 = require("react/jsx-runtime");
+function cx3(...parts) {
+  return parts.filter(Boolean).join(" ");
+}
+function FileEditorView({ remote, t }) {
+  const tabs2 = useTabs();
+  const activePath2 = useActivePath();
+  const active = activePath2 === null ? void 0 : tabs2.find((t2) => t2.path === activePath2);
+  const [busy, setBusy] = (0, import_react5.useState)(false);
+  const [notice, setNotice] = (0, import_react5.useState)(null);
+  const theme = useEditorTheme();
+  const chrome = themeChrome(theme);
+  const saveActive = (0, import_react5.useCallback)(async () => {
+    if (active === void 0 || !active.dirty) return;
+    setBusy(true);
+    try {
+      await unwrap(await remote.writeText(active.path, active.content));
+      markSaved(active.path);
+      setNotice(`\u5DF2\u4FDD\u5B58 ${active.path.split("/").pop()}`);
+    } catch (error) {
+      setNotice(`\u4FDD\u5B58\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [active, remote]);
+  const saveRef = (0, import_react5.useRef)(saveActive);
+  saveRef.current = saveActive;
+  (0, import_react5.useEffect)(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void saveRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+  const themeVars = {
+    "--dshf-bg": theme.background,
+    "--dshf-fg": theme.foreground,
+    "--dshf-chrome": chrome.chrome,
+    "--dshf-border": chrome.border,
+    "--dshf-muted": chrome.muted,
+    "--dshf-chip": chrome.chip,
+    "--dshf-dirty": chrome.dirty,
+    "--dshf-accent": "#094771",
+    "--dshf-font-size": `${theme.fontSize}px`
+  };
+  if (active === void 0) {
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dshf-editor-view", style: themeVars, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dshf-editor-toolbar", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dshf-title", children: t ? t("view.label") : "\u6587\u4EF6" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dshf-spacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(ThemeButton, {})
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "dshf-empty", children: t ? t("view.empty") : "\u5728\u5DE6\u4FA7\u6587\u4EF6\u6811\u4E2D\u9009\u62E9\u4E00\u4E2A\u6587\u4EF6\uFF0C\u5373\u53EF\u5728\u6B64\u7F16\u8F91" })
+    ] });
+  }
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dshf-editor-view", style: themeVars, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dshf-editor-toolbar", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: cx3("dshf-tabname", active.dirty && "dshf-dirty"), title: active.path, children: [
+        active.dirty ? "\u25CF " : "",
+        active.path.split("/").pop()
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dshf-spacer" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dshf-editor-path", title: active.path, children: active.path }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(ThemeButton, {}),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+        "button",
+        {
+          type: "button",
+          className: "dshf-btn",
+          title: "\u4FDD\u5B58 (Ctrl+S)",
+          disabled: !active.dirty || busy,
+          onClick: () => void saveActive(),
+          children: "\u4FDD\u5B58"
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+        "button",
+        {
+          type: "button",
+          className: "dshf-btn",
+          title: "\u5173\u95ED\u5F53\u524D\u6587\u4EF6",
+          disabled: tabs2.length <= 1,
+          onClick: closeEditor,
+          children: "\u2715"
+        }
+      )
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: cx3("dshf-status", "dshf-status-top"), children: [
+      tabs2.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dshf-tabs-strip", children: tabs2.map((t2) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+        "span",
+        {
+          className: cx3("dshf-tab-chip", t2.path === activePath2 && "dshf-tab-chip-active"),
+          title: t2.path,
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+              "button",
+              {
+                type: "button",
+                className: "dshf-tab-chip-name",
+                onClick: () => focusTab(t2.path),
+                children: t2.path.split("/").pop()
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+              "button",
+              {
+                type: "button",
+                className: "dshf-tab-chip-close",
+                "aria-label": `\u5173\u95ED ${t2.path.split("/").pop()}`,
+                title: "\u5173\u95ED",
+                onClick: () => closeTab(t2.path),
+                children: "\u2715"
+              }
+            )
+          ]
+        },
+        t2.path
+      )) }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "dshf-status-meta", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dshf-status-busy", children: busy ? "\u2026" : "" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: cx3("dshf-status-notice", notice === null && "dshf-hidden"), children: notice ?? "" })
+      ] })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+      EditorPane,
+      {
+        path: active.path,
+        content: active.content,
+        onChange: updateActiveContent,
+        theme
+      },
+      active.path
+    )
+  ] });
+}
+function ThemeButton() {
+  const [open, setOpen] = (0, import_react5.useState)(false);
+  const [importError, setImportError] = (0, import_react5.useState)(null);
+  const fileRef = (0, import_react5.useRef)(null);
+  const theme = useEditorTheme();
+  const presetId = presetIdOf(theme);
+  const handleExport = () => {
+    const name = presetId !== void 0 ? `dsh-file \xB7 ${EDITOR_THEME_PRESET_LABELS[presetId] ?? presetId}` : "dsh-file \xB7 \u81EA\u5B9A\u4E49";
+    const text = exportThemeText(theme, name);
+    const blob = new Blob([text], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dsh-file-theme-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+  const handleImportFile = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const imported = parseImportedTheme(String(reader.result ?? ""));
+        setEditorTheme({ background: imported.background, foreground: imported.foreground, fontSize: imported.fontSize });
+        setImportError(null);
+      } catch (error) {
+        setImportError(error instanceof Error ? error.message : String(error));
+      }
+    };
+    reader.onerror = () => setImportError("\u8BFB\u53D6\u6587\u4EF6\u5931\u8D25");
+    reader.readAsText(file);
+  };
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "dshf-theme-wrap", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+      "button",
+      {
+        type: "button",
+        className: "dshf-btn",
+        title: "\u7F16\u8F91\u5668\u4E3B\u9898\u8BBE\u7F6E",
+        onClick: () => setOpen((v) => !v),
+        children: "\u4E3B\u9898"
+      }
+    ),
+    open && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dshf-theme-panel", role: "dialog", "aria-label": "\u7F16\u8F91\u5668\u4E3B\u9898", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "dshf-theme-row", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dshf-theme-label", children: "\u9884\u8BBE" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+          "select",
+          {
+            className: "dshf-theme-select",
+            value: presetId ?? "custom",
+            onChange: (e) => {
+              const preset = EDITOR_THEME_PRESETS[e.target.value];
+              if (preset) setEditorTheme(preset);
+            },
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("option", { value: "custom", disabled: true, children: "\u81EA\u5B9A\u4E49" }),
+              EDITOR_THEME_PRESET_ORDER.map((id) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("option", { value: id, children: EDITOR_THEME_PRESET_LABELS[id] ?? id }, id))
+            ]
+          }
+        )
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "dshf-theme-row", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dshf-theme-label", children: "\u80CC\u666F" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          "input",
+          {
+            type: "color",
+            value: theme.background,
+            onChange: (e) => setEditorTheme({ background: e.target.value })
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("code", { className: "dshf-theme-hex", children: theme.background })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "dshf-theme-row", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dshf-theme-label", children: "\u6587\u5B57" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          "input",
+          {
+            type: "color",
+            value: theme.foreground,
+            onChange: (e) => setEditorTheme({ foreground: e.target.value })
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("code", { className: "dshf-theme-hex", children: theme.foreground })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "dshf-theme-row", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dshf-theme-label", children: "\u5B57\u53F7" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          "input",
+          {
+            type: "number",
+            className: "dshf-theme-fontsize",
+            min: 10,
+            max: 28,
+            value: theme.fontSize,
+            onChange: (e) => {
+              const n = Number(e.target.value);
+              if (Number.isFinite(n) && n > 0) setEditorTheme({ fontSize: n });
+            }
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dshf-theme-unit", children: "px" })
+      ] }),
+      importError !== null && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "dshf-theme-error", children: importError }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dshf-theme-row dshf-theme-actions", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "dshf-btn", title: "\u5C06\u5F53\u524D\u4E3B\u9898\u4FDD\u5B58\u4E3A JSON \u6587\u4EF6", onClick: handleExport, children: "\u5BFC\u51FA\u4E3B\u9898" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "dshf-btn", title: "\u4ECE JSON \u6587\u4EF6\u5BFC\u5165\u4E3B\u9898", onClick: () => fileRef.current?.click(), children: "\u5BFC\u5165\u4E3B\u9898" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          "input",
+          {
+            ref: fileRef,
+            type: "file",
+            accept: ".json,application/json",
+            className: "dshf-hidden-input",
+            onChange: handleImportFile
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "dshf-btn", title: "\u6062\u590D\u9ED8\u8BA4\u6D45\u8272\u4E3B\u9898", onClick: () => resetEditorTheme(), children: "\u91CD\u7F6E" })
+      ] })
+    ] })
+  ] });
+}
+function EditorPane({ path, content, onChange, theme }) {
+  const [mode, setMode] = (0, import_react5.useState)("loading");
+  const [monacoLib, setMonacoLib] = (0, import_react5.useState)(null);
+  const hostRef = (0, import_react5.useRef)(null);
+  const editorRef = (0, import_react5.useRef)(null);
+  const onChangeRef = (0, import_react5.useRef)(onChange);
   onChangeRef.current = onChange;
-  const initialRef = (0, import_react2.useRef)(content);
+  const initialRef = (0, import_react5.useRef)(content);
   initialRef.current = content;
-  (0, import_react2.useEffect)(() => {
+  (0, import_react5.useEffect)(() => {
     let disposed = false;
     setMode("loading");
     ensureMonaco().then((monaco) => {
@@ -443,19 +903,15 @@ function EditorPane({ path, content, dirty, onChange }) {
       setMonacoLib(null);
     };
   }, [path]);
-  (0, import_react2.useEffect)(() => {
+  (0, import_react5.useEffect)(() => {
     if (mode !== "monaco" || monacoLib === null || hostRef.current === null) return;
     const initial = initialRef.current;
     const monacoAny = monacoLib;
-    try {
-      monacoAny.editor.setTheme("vs-dark");
-    } catch {
-    }
     const editor = monacoAny.editor.create(hostRef.current, {
       value: initial,
       language: languageOf(path),
       automaticLayout: true,
-      fontSize: 13,
+      fontSize: theme.fontSize,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
       tabSize: 2
@@ -467,33 +923,50 @@ function EditorPane({ path, content, dirty, onChange }) {
       editorRef.current = null;
     };
   }, [mode, monacoLib, path]);
-  if (mode === "monaco") {
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-editor-host", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dshf-editor-tabbar", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: cx2("dshf-tabname", dirty && "dshf-dirty"), children: [
-        dirty ? "\u25CF " : "",
-        path.split("/").pop()
-      ] }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { ref: hostRef, className: "dshf-monaco" })
-    ] });
-  }
+  (0, import_react5.useEffect)(() => {
+    if (mode !== "monaco" || monacoLib === null) return;
+    const monacoAny = monacoLib;
+    try {
+      const light = isLightColor(theme.background);
+      monacoAny.editor.defineTheme("dshf-editor", {
+        base: light ? "vs" : "vs-dark",
+        inherit: true,
+        rules: [],
+        colors: {
+          "editor.background": theme.background,
+          "editor.foreground": theme.foreground,
+          "editorLineNumber.foreground": mixColors(theme.foreground, theme.background, 0.45),
+          "editorLineNumber.activeForeground": theme.foreground,
+          "editorCursor.foreground": theme.foreground,
+          "editor.selectionBackground": light ? "#add6ff" : "#264f78",
+          "editor.inactiveSelectionBackground": light ? "#e5ebf1" : "#3a3d41",
+          "editor.lineHighlightBackground": light ? "#e3edf7" : "#282a2d",
+          "editorWidget.background": mixColors(theme.background, light ? "#000000" : "#ffffff", 0.08),
+          "editorWidget.border": mixColors(theme.background, light ? "#000000" : "#ffffff", 0.2),
+          "scrollbarSlider.background": mixColors(theme.foreground, theme.background, 0.2),
+          "scrollbarSlider.hoverBackground": mixColors(theme.foreground, theme.background, 0.3)
+        }
+      });
+      monacoAny.editor.setTheme("dshf-editor");
+    } catch {
+    }
+    editorRef.current?.updateOptions?.({ fontSize: theme.fontSize });
+  }, [mode, monacoLib, theme.background, theme.foreground, theme.fontSize]);
   if (mode === "loading") {
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dshf-empty", children: "\u7F16\u8F91\u5668\u52A0\u8F7D\u4E2D\u2026" });
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "dshf-empty", children: "\u7F16\u8F91\u5668\u52A0\u8F7D\u4E2D\u2026" });
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-editor-host", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dshf-editor-tabbar", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: cx2("dshf-tabname", dirty && "dshf-dirty"), children: [
-      dirty ? "\u25CF " : "",
-      path.split("/").pop()
-    ] }) }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-      "textarea",
-      {
-        className: "dshf-textarea",
-        value: content,
-        onChange: (e) => onChange(e.target.value),
-        spellCheck: false
-      }
-    )
-  ] });
+  if (mode === "monaco") {
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { ref: hostRef, className: "dshf-monaco" });
+  }
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+    "textarea",
+    {
+      className: "dshf-textarea",
+      value: content,
+      onChange: (e) => onChange(e.target.value),
+      spellCheck: false
+    }
+  );
 }
 function languageOf(path) {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
@@ -564,10 +1037,511 @@ function languageOf(path) {
 }
 
 // src/client/styles.css
-var styles_default = "/* dsh-file plugin styles. Kept dependency-free: plain CSS with DSH design\n * tokens where available, sensible fallbacks elsewhere. */\n\n.dshf-root {\n  display: flex;\n  flex-direction: column;\n  height: 100%;\n  min-height: 0;\n  box-sizing: border-box;\n  font-size: 13px;\n  color: var(--dsw-alias-label-primary, #1f2328);\n}\n\n.dshf-toolbar {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  padding: 6px 8px;\n  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));\n  flex: none;\n}\n\n.dshf-title {\n  font-weight: 600;\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  max-width: 120px;\n}\n\n.dshf-spacer {\n  flex: 1;\n}\n\n.dshf-btn {\n  background: transparent;\n  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.15));\n  border-radius: 6px;\n  color: inherit;\n  cursor: pointer;\n  font-size: 12px;\n  padding: 2px 6px;\n  line-height: 1.5;\n}\n.dshf-btn:hover {\n  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05));\n}\n\n.dshf-error {\n  padding: 8px 12px;\n  color: var(--dsw-alias-danger-fg, #c92a2a);\n  font-size: 12px;\n}\n\n.dshf-body {\n  display: flex;\n  flex: 1;\n  min-height: 0;\n}\n\n.dshf-tree {\n  width: 46%;\n  min-width: 140px;\n  max-width: 260px;\n  border-right: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));\n  overflow: hidden;\n  display: flex;\n}\n\n.dshf-tree-scroll {\n  overflow: auto;\n  flex: 1;\n  min-height: 0;\n  padding: 4px 0;\n}\n\n.dshf-tree-list {\n  min-width: max-content;\n}\n\n.dshf-tree-hint {\n  padding: 4px 12px;\n  color: var(--dsw-alias-label-tertiary, #868e96);\n  font-size: 12px;\n}\n\n.dshf-node {\n  display: flex;\n  align-items: center;\n  gap: 4px;\n  padding: 2px 8px;\n  cursor: pointer;\n  white-space: nowrap;\n  user-select: none;\n  min-height: 22px;\n}\n.dshf-node:hover {\n  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05));\n}\n.dshf-selected {\n  background: var(--dsw-alias-interactive-bg-selected, rgba(77, 171, 247, 0.15));\n}\n\n.dshf-caret {\n  width: 12px;\n  flex: none;\n  font-size: 10px;\n  color: var(--dsw-alias-label-tertiary, #868e96);\n}\n\n.dshf-icon {\n  flex: none;\n  font-size: 13px;\n}\n\n.dshf-name {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  min-width: 0;\n}\n\n.dshf-node-actions {\n  display: none;\n  margin-left: auto;\n  gap: 2px;\n  flex: none;\n}\n.dshf-node:hover .dshf-node-actions {\n  display: inline-flex;\n}\n\n.dshf-mini {\n  background: transparent;\n  border: none;\n  cursor: pointer;\n  font-size: 11px;\n  padding: 0 2px;\n  opacity: 0.7;\n}\n.dshf-mini:hover {\n  opacity: 1;\n}\n\n.dshf-editor {\n  flex: 1;\n  min-width: 0;\n  display: flex;\n  flex-direction: column;\n  min-height: 0;\n}\n\n.dshf-editor-host {\n  display: flex;\n  flex-direction: column;\n  flex: 1;\n  min-height: 0;\n}\n\n.dshf-editor-tabbar {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  padding: 4px 8px;\n  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));\n  flex: none;\n  font-size: 12px;\n}\n\n.dshf-tabname {\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n.dshf-dirty {\n  color: var(--dsw-alias-warning-fg, #e8590c);\n}\n\n.dshf-monaco {\n  flex: 1;\n  min-height: 0;\n}\n\n.dshf-textarea {\n  flex: 1;\n  min-height: 0;\n  resize: none;\n  border: none;\n  outline: none;\n  padding: 8px 12px;\n  font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);\n  font-size: 13px;\n  line-height: 1.5;\n  background: transparent;\n  color: inherit;\n}\n\n.dshf-empty {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  flex: 1;\n  color: var(--dsw-alias-label-tertiary, #868e96);\n  font-size: 12px;\n}\n\n.dshf-status {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 4px 8px;\n  border-top: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));\n  flex: none;\n  font-size: 11px;\n  color: var(--dsw-alias-label-tertiary, #868e96);\n  min-height: 22px;\n}\n\n.dshf-status-busy {\n  color: var(--dsw-alias-accent-strong, #4dabf7);\n}\n\n.dshf-status-notice {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.dshf-status-path {\n  margin-left: auto;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n  max-width: 50%;\n}\n\n.dshf-hidden {\n  display: none;\n}\n\n/* Sidebar footer toggle button */\n.dshf-toggle {\n  display: inline-flex;\n  align-items: center;\n  gap: 6px;\n  background: transparent;\n  border: 1px solid transparent;\n  border-radius: 8px;\n  color: var(--dsw-alias-label-secondary, #495057);\n  cursor: pointer;\n  padding: 6px 10px;\n  flex: 1;\n  min-width: 0;\n}\n.dshf-toggle:hover {\n  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06));\n}\n\n.dshf-toggle-label {\n  font-size: 13px;\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n";
+var styles_default = `/* dsh-file plugin styles. Kept dependency-free: plain CSS with DSH design
+ * tokens where available, sensible fallbacks elsewhere. */
+
+/* \u2500\u2500 sidebar tree panel \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+
+.dshf-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+.dshf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
+  flex: none;
+}
+
+.dshf-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.dshf-spacer {
+  flex: 1;
+}
+
+.dshf-btn {
+  background: transparent;
+  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.15));
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  line-height: 1.5;
+}
+.dshf-btn:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05));
+}
+.dshf-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dshf-error {
+  padding: 8px 12px;
+  color: var(--dsw-alias-danger-fg, #c92a2a);
+  font-size: 12px;
+}
+
+.dshf-tree-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.dshf-tree-scroll {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 4px 0;
+}
+
+.dshf-tree-list {
+  min-width: max-content;
+}
+
+.dshf-tree-hint {
+  padding: 4px 12px;
+  color: var(--dsw-alias-label-tertiary, #868e96);
+  font-size: 12px;
+}
+
+.dshf-node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  min-height: 22px;
+}
+.dshf-node:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05));
+}
+.dshf-selected {
+  background: var(--dsw-alias-interactive-bg-selected, rgba(77, 171, 247, 0.15));
+}
+
+.dshf-caret {
+  width: 12px;
+  flex: none;
+  font-size: 10px;
+  color: var(--dsw-alias-label-tertiary, #868e96);
+}
+
+.dshf-icon {
+  flex: none;
+  font-size: 13px;
+}
+
+.dshf-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.dshf-node-actions {
+  display: none;
+  margin-left: auto;
+  gap: 2px;
+  flex: none;
+}
+.dshf-node:hover .dshf-node-actions {
+  display: inline-flex;
+}
+
+.dshf-mini {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+  opacity: 0.7;
+}
+.dshf-mini:hover {
+  opacity: 1;
+}
+
+.dshf-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-top: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
+  flex: none;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary, #868e96);
+  min-height: 22px;
+}
+
+/* Status row placed at the TOP of the editor view (below the toolbar):
+ * the open-file tab strip reads top-down, so the border flips sides. */
+.dshf-status-top {
+  border-top: none;
+  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
+}
+
+.dshf-status-busy {
+  color: var(--dsw-alias-accent-strong, #4dabf7);
+}
+
+.dshf-status-notice {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dshf-status-hint {
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-tertiary, #868e96);
+}
+
+.dshf-hidden {
+  display: none;
+}
+
+/* \u2500\u2500 center-column editor view (conversation.view) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+
+/* Renders IN the conversation center column's view area (inside the session
+ * scroll body), alongside chat / trajectory \u2014 never a popup. Fills the view
+ * area the session body reserves for the active view.
+ *
+ * The whole view is ONE cohesive surface. Colors come from the editor theme
+ * (themeStore) via CSS custom properties with LIGHT defaults (the default
+ * theme is light), so the chrome always matches the Monaco background
+ * instead of clashing with the page. */
+.dshf-editor-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  position: relative;
+  background: var(--dshf-bg, #ffffff);
+  color: var(--dshf-fg, #1f2328);
+  font-size: 13px;
+}
+
+.dshf-editor-view .dshf-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--dshf-chrome, #f3f3f3);
+  border-bottom: 1px solid var(--dshf-border, #e0e0e0);
+  flex: none;
+  font-size: 12px;
+  color: var(--dshf-fg, #1f2328);
+}
+
+.dshf-editor-view .dshf-tabname {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--dshf-fg, #1f2328);
+}
+.dshf-editor-view .dshf-dirty {
+  color: var(--dshf-dirty, #c2410c);
+}
+
+.dshf-editor-view .dshf-editor-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dshf-muted, #868e96);
+  font-size: 11px;
+}
+
+.dshf-editor-view .dshf-status-top {
+  background: var(--dshf-chrome, #f3f3f3);
+  color: var(--dshf-muted, #868e96);
+}
+
+.dshf-editor-view .dshf-empty {
+  color: var(--dshf-muted, #868e96);
+}
+
+.dshf-editor-view .dshf-monaco {
+  flex: 1;
+  min-height: 0;
+}
+
+.dshf-editor-view .dshf-textarea {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  border: none;
+  outline: none;
+  padding: 8px 12px;
+  font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: var(--dshf-font-size, 13px);
+  line-height: 1.5;
+  background: var(--dshf-bg, #ffffff);
+  color: var(--dshf-fg, #1f2328);
+}
+
+.dshf-editor-view .dshf-btn {
+  color: var(--dshf-fg, #1f2328);
+  border-color: var(--dshf-border, #d0d0d0);
+}
+.dshf-editor-view .dshf-btn:hover {
+  background: var(--dshf-chip, #ececec);
+}
+
+.dshf-editor-view .dshf-tab-chip {
+  background: var(--dshf-chip, #ececec);
+  border-color: var(--dshf-border, #d0d0d0);
+  color: var(--dshf-fg, #1f2328);
+}
+.dshf-editor-view .dshf-tab-chip:hover {
+  background: var(--dshf-border, #c9c9c9);
+}
+.dshf-editor-view .dshf-tab-chip-active {
+  background: var(--dshf-accent, #094771);
+  border-color: var(--dshf-accent, #094771);
+  color: #ffffff;
+}
+.dshf-editor-view .dshf-tab-chip-close:hover {
+  background: var(--dshf-border, rgba(0, 0, 0, 0.1));
+}
+
+/* \u2500\u2500 editor theme panel (VS Code style) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+
+.dshf-theme-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.dshf-theme-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  width: 252px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 10px;
+  background: var(--dshf-chrome, #f3f3f3);
+  border: 1px solid var(--dshf-border, #d0d0d0);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  color: var(--dshf-fg, #1f2328);
+  font-size: 12px;
+}
+
+.dshf-theme-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dshf-theme-label {
+  flex: none;
+  width: 44px;
+  color: var(--dshf-muted, #868e96);
+}
+
+.dshf-theme-select {
+  flex: 1;
+  min-width: 0;
+  background: var(--dshf-chip, #ececec);
+  border: 1px solid var(--dshf-border, #d0d0d0);
+  border-radius: 6px;
+  color: var(--dshf-fg, #1f2328);
+  font-size: 12px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.dshf-theme-select:focus {
+  outline: none;
+  border-color: var(--dshf-accent, #094771);
+}
+
+.dshf-theme-row input[type='color'] {
+  width: 34px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--dshf-border, #d0d0d0);
+  border-radius: 4px;
+  background: var(--dshf-chip, #ececec);
+  cursor: pointer;
+}
+
+.dshf-theme-hex {
+  font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 11px;
+  color: var(--dshf-muted, #868e96);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dshf-theme-error {
+  color: var(--dshf-dirty, #c2410c);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.dshf-hidden-input {
+  display: none;
+}
+
+.dshf-theme-fontsize {
+  width: 52px;
+  background: var(--dshf-chip, #ececec);
+  border: 1px solid var(--dshf-border, #d0d0d0);
+  border-radius: 4px;
+  color: var(--dshf-fg, #1f2328);
+  font-size: 12px;
+  padding: 1px 4px;
+}
+
+.dshf-theme-unit {
+  color: var(--dshf-muted, #868e96);
+  font-size: 11px;
+}
+
+.dshf-theme-actions {
+  justify-content: flex-end;
+  border-top: 1px solid var(--dshf-border, rgba(0, 0, 0, 0.1));
+  padding-top: 8px;
+}
+
+.dshf-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--dsw-alias-label-tertiary, #868e96);
+  font-size: 12px;
+}
+
+.dshf-tabs-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  max-width: 60%;
+}
+
+/* One open-file tab: a chip container holding the (clickable) name and a
+ * per-file close "\u2715". Left-aligned in the status row. */
+.dshf-tab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12));
+  border-radius: 6px;
+  color: var(--dsw-alias-label-secondary, #495057);
+  font-size: 11px;
+  padding: 1px 2px 1px 6px;
+  white-space: nowrap;
+  max-width: 160px;
+}
+.dshf-tab-chip:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05));
+}
+.dshf-tab-chip-active {
+  background: var(--dsw-alias-interactive-bg-selected, rgba(77, 171, 247, 0.15));
+  border-color: var(--dsw-alias-accent-strong, #4dabf7);
+}
+
+/* Filename part of a tab (click to focus). */
+.dshf-tab-chip-name {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.dshf-tab-chip-name:hover {
+  text-decoration: underline;
+}
+
+/* Per-file close button. */
+.dshf-tab-chip-close {
+  background: transparent;
+  border: none;
+  padding: 0 3px;
+  margin: 0;
+  font-size: 10px;
+  line-height: 1;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.55;
+  border-radius: 4px;
+  flex: none;
+}
+.dshf-tab-chip-close:hover {
+  opacity: 1;
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.08));
+}
+
+/* Busy / notice group pushed to the right end of the status row. */
+.dshf-status-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+}
+
+/* Sidebar footer toggle button */
+.dshf-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--dsw-alias-label-secondary, #495057);
+  cursor: pointer;
+  padding: 6px 10px;
+  flex: 1;
+  min-width: 0;
+}
+.dshf-toggle:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06));
+}
+
+.dshf-toggle-label {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+`;
 
 // src/client/index.tsx
-var import_jsx_runtime3 = require("react/jsx-runtime");
+var import_jsx_runtime4 = require("react/jsx-runtime");
 var CSS_TAG = "dsh-file/styles.css";
 if (typeof document !== "undefined" && document.querySelector(`style[data-plugin-css="${CSS_TAG}"]`) === null) {
   const tag = document.createElement("style");
@@ -580,16 +1554,21 @@ var NS = "dshFile";
 var zh = {
   "toggle.label": "\u6587\u4EF6",
   "toggle.open": "\u6253\u5F00\u6587\u4EF6\u7BA1\u7406\u5668",
-  "toggle.close": "\u5173\u95ED\u6587\u4EF6\u7BA1\u7406\u5668"
+  "toggle.close": "\u5173\u95ED\u6587\u4EF6\u7BA1\u7406\u5668",
+  "view.label": "\u6587\u4EF6",
+  "view.empty": "\u5728\u5DE6\u4FA7\u6587\u4EF6\u6811\u4E2D\u9009\u62E9\u4E00\u4E2A\u6587\u4EF6\uFF0C\u5373\u53EF\u5728\u6B64\u7F16\u8F91"
 };
 var en = {
   "toggle.label": "Files",
   "toggle.open": "Open file manager",
-  "toggle.close": "Close file manager"
+  "toggle.close": "Close file manager",
+  "view.label": "Files",
+  "view.empty": "Select a file in the sidebar tree to edit it here"
 };
 var inject = ["slots", "locale", "remote"];
 function apply(ctx) {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), "dsh-file: dictionaries");
+  const t = ctx.locale.bind(NS);
   const mountRemote = ctx.effect(async () => {
     const dispose = await ctx.remote.$mount(TYPERT_REMOTE);
     return () => dispose();
@@ -614,11 +1593,23 @@ function apply(ctx) {
       name: "sidebar.workspaces",
       priority: -1,
       registrant: "dsh-file"
-    }, (props) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(FileManagerPanel, { ...face }));
+    }, (props) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FileManagerPanel, { ...face, useSessions: props.useSessions }));
     open = true;
     ctx.logger?.info?.("[dsh-file] file manager opened");
   };
   const togglePanel = () => open ? closePanel() : openPanel();
+  ctx.slots.inject("conversation.view", () => ctx.slots.register({
+    name: "conversation.view",
+    id: "dsh-file",
+    order: 20,
+    label: () => t("view.label"),
+    locale: NS,
+    registrant: "dsh-file"
+  }, () => {
+    const remote = ctx.get("remote.fileManager");
+    if (remote === void 0) return null;
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FileEditorView, { remote });
+  }));
   ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
     name: "sidebar.footer.action",
     id: "dsh-file-toggle",
@@ -637,7 +1628,7 @@ function FileToggleButton(props) {
   const { wide, t, onToggle, isOpen } = props;
   const label = t ? t("toggle.label") : "\u6587\u4EF6";
   const title = t ? isOpen() ? t("toggle.close") : t("toggle.open") : void 0;
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
     "button",
     {
       type: "button",
@@ -647,8 +1638,8 @@ function FileToggleButton(props) {
       onClick: onToggle,
       style: isOpen() ? { fontWeight: 700, color: "var(--dsw-alias-accent-strong, #4dabf7)" } : void 0,
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { "aria-hidden": "true", style: { fontSize: wide ? 14 : 16, lineHeight: 1 }, children: "\u{1F5C2}" }),
-        wide ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dshf-toggle-label", children: label }) : null
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { "aria-hidden": "true", style: { fontSize: wide ? 14 : 16, lineHeight: 1 }, children: "\u{1F5C2}" }),
+        wide ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dshf-toggle-label", children: label }) : null
       ]
     }
   );

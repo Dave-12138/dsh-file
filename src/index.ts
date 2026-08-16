@@ -90,8 +90,8 @@ export async function resolveInside(root: string, requested: string): Promise<st
 export class FileManagerGateway extends TypertRemoteService {
   static inject: string[] = [];
 
-  /** Workspace root, pinned by configuration (defaults to process.cwd()). */
-  private readonly root: string;
+  /** Workspace root served by the gateway; re-pinnable via the setRoot RPC (falls back to config/process.cwd()). */
+  private root: string;
 
   constructor(ctx: Context, config: { root?: string } = {}) {
     super(ctx, 'fileManager');
@@ -255,6 +255,25 @@ export class FileManagerGateway extends TypertRemoteService {
   /** Return the workspace root the gateway serves (the client's initial directory). */
   @Remote('getRoot')
   async getRoot(): Promise<{ path: string }> {
+    return { path: this.root };
+  }
+
+  /**
+   * Re-pin the workspace root the gateway serves. The browser calls this with
+   * the CURRENT conversation's workspace directory (SessionHeader.cwd) when
+   * the file manager opens, so the tree always reflects the session's
+   * workspace instead of the process-launch directory. The path must exist
+   * and be a directory; afterwards every operation resolves against it.
+   * @param path - absolute workspace directory, or a path relative to the current root.
+   */
+  @Remote('setRoot')
+  async setRoot(path: string): Promise<{ path: string }> {
+    const abs = nodePath.isAbsolute(path)
+      ? nodePath.normalize(path)
+      : nodePath.resolve(this.root, path);
+    const st = await fs.stat(abs);
+    if (!st.isDirectory()) throw new Error(`not a directory: ${abs}`);
+    this.root = await fs.realpath(abs);
     return { path: this.root };
   }
 }

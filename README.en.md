@@ -1,0 +1,155 @@
+# dsh-file
+
+[**中文**](README.md) | **English**
+
+> A VS Code-style file manager plugin for DeepSeek Harness Web: browse the current conversation's workspace from the sidebar and edit files in the center column.
+>
+> DeepSeek Harness 的 VS Code 风格文件管理器插件：在 Web 侧边栏浏览当前对话工作区的文件，在中间主区域编辑。
+
+## Features
+
+- **"Files" button at the sidebar footer**: toggles the sidebar body into the file manager (file tree) and back to the workspace/session list
+- **Workspace follows the active conversation**: opening the file manager resolves the current session's workspace directory (`SessionHeader.cwd`) and re-pins the gateway root via `setRoot` — no longer the directory `dsh web` was launched from
+- **Center-column editor (view tab)**: the editor is registered as a `conversation.view` view ("Files" tab, alongside Chat/Trajectory). Clicking a file opens it **inside the session scroll area of the page** (not a popup): Monaco Editor (the same kernel VS Code uses, loaded from CDN) with extension-based syntax highlighting; falls back to a plain textarea when the CDN is unreachable
+- **Theme settings (VS Code style)**: the "Theme" button in the editor toolbar opens a settings panel — light by default, presets selected via a **dropdown** (Light/Dark/One Dark/GitHub), plus custom background / foreground colors and font size (10–28px), applied live to Monaco and the editor chrome (toolbar/status/tabs follow the background), persisted to localStorage
+- **Theme import/export**: export the current theme to a JSON file and import it back, just like VS Code, to migrate your colors between environments (see [Theme import/export](#theme-importexport))
+- **Edit & save**: Ctrl+S or the "Save" button in the editor, dirty marker (●); multiple open files switch via the top tab strip, each tab has a ✕ close button
+- **File operations**: create file, create directory, rename, delete (delete requires confirmation; non-empty directories are rejected)
+- **Workspace boundary**: every path resolves against the currently pinned `root`; escaping paths are rejected by the host (including symlink-escape protection)
+
+## Theme import/export
+
+The theme panel (the "Theme" button in the editor toolbar) can export the current theme to a JSON file or import one back — the same idea as VS Code theme files, handy for moving your colors across machines or environments.
+
+### Export a theme
+
+1. Open the file editor (the "Files" view in the center column).
+2. Click the **Theme** button in the toolbar to open the settings panel.
+3. Click **Export theme** — the browser downloads a `dsh-file-theme-YYYY-MM-DD.json` file.
+
+The exported JSON carries both the plugin's flat fields and VS Code workbench `colors`:
+
+```json
+{
+  "name": "dsh-file · One Dark",
+  "type": "dsh-file-theme",
+  "version": 1,
+  "background": "#282c34",
+  "foreground": "#abb2bf",
+  "fontSize": 13,
+  "colors": {
+    "editor.background": "#282c34",
+    "editor.foreground": "#abb2bf"
+  }
+}
+```
+
+### Import a theme
+
+1. Open the theme settings panel.
+2. Click **Import theme** and pick a JSON file.
+
+Accepted formats:
+
+- **This plugin's export format** (`background` / `foreground` / `fontSize`);
+- **VS Code theme JSON**: reads `colors["editor.background"]` and `colors["editor.foreground"]` (`tokenColors` are not applied yet — syntax highlighting keeps Monaco's built-in colors).
+
+On success the colors apply immediately and are persisted to localStorage; invalid JSON or missing valid colors shows an error in the panel.
+
+## Architecture
+
+The plugin has two halves sharing the package name `dsh-file`:
+
+| | Host half (Node process) | Client half (browser React) |
+|---|---|---|
+| Source | `src/index.ts` | `src/client/` |
+| Build output | `dist/index.js` (tsc, keeps standard decorators) | `dist/client.js` (esbuild, ModuleLoader bundle) |
+| Responsibility | Filesystem RPC | Sidebar file tree + center-column editor view |
+| Key API | `class FileManagerGateway extends TypertRemoteService` + `@Remote()` | `ctx.slots.register()`, `ctx.remote.$mount()` |
+
+### Host ↔ Client communication (Typert Remote)
+
+Browsers cannot touch the filesystem directly, so the host half exposes file operations as RPC endpoints (namespace `fileManager`: `listDir` / `readText` / `writeText` / `createFile` / `createDirectory` / `rename` / `delete` / `stat` / `resolve` / `getRoot` / `setRoot`). The client mounts the call surface with `ctx.remote.$mount(TYPERT_REMOTE)` and resolves the service via `ctx.get('remote.fileManager')`. `setRoot` re-pins the gateway root to the current session's workspace directory.
+
+**Key constraint (SRC descriptor contract)**: the Typert gateway derives wire parameter names from method signatures via `Function.prototype.toString` — host methods must use **flat parameters** (`listDir(path: string)`, not `listDir(input: {...})`); the parameter names are the wire fields the client sends. Both halves must use identical names.
+
+### Panel toggle mechanism
+
+The sidebar main area is the single-seat `sidebar.workspaces` slot (occupied by the workspace browser at priority 0). The plugin registers its own shadow entry at `priority: -1` when the button is clicked — a single-seat slot renders the lowest-priority live entry, so the file manager wins the cell; closing disposes the entry and the workspace browser returns. After clicking a file in the tree, the editor renders in the "Files" view registered in `conversation.view` — the session scroll area of the center column (alongside chat / trajectory), entered via the "Files" tab in the session header, never a popup.
+
+### Dependency resolution (important)
+
+The `@deepseek-ai/*` packages **must not** be installed as copies inside the plugin's own `node_modules`: `@Remote` decorator markers live in a module-level WeakMap, and if the plugin and the api-gateway each hold a separate `dsh-typert-protocol` instance the markers are invisible to each other (RPC returns 404). Node must resolve to the same instance as the dsh installation:
+
+```sh
+# Local development (when dsh is installed locally via npx):
+ln -s ~/.dsh/profiles/node_modules/@deepseek-ai node_modules/@deepseek-ai
+```
+
+At startup `dsh` maintains a flat symlink fallback at `$DSH_HOME/profiles/node_modules` (`healProfilesModuleFallback`) pointing at every package in the dsh installation. For production releases the plugin declares `@deepseek-ai/*` as `peerDependencies`, provided by the profile.
+
+## Development
+
+```sh
+npm install                       # esbuild + typescript + types
+node build.mjs                    # build host (tsc) + client bundle (esbuild)
+node build.mjs --watch            # watch client only (rerun for host changes)
+```
+
+Build outputs:
+- `dist/index.js` — host half (Node ESM; compiled with tsc to keep the standard stage-3 decorators; esbuild would lower `@Remote` to the legacy form and crash at runtime)
+- `dist/client.js` — client half (`window.__ModuleLoader__.load({id, factory})` format; `react` and other seed words stay external)
+
+## Installation
+
+### Local install (development)
+
+```sh
+# Run from dsh-file's parent directory so ./dsh-file is not resolved as a subdirectory
+cd /path/to/dsh-plugin
+dsh plugin --profile web add ./dsh-file
+```
+
+`dsh plugin add` pnpm-links the package into the profile and appends it to `dsh.profile.bundles`. **Restart `dsh web` to take effect** (client plugin metadata is cached by name; it is rescanned after a restart).
+
+### Published install
+
+```sh
+npm publish                      # publish to the registry (files already include dist/ + cordis.patch.yml)
+dsh plugin --profile web add dsh-file
+# or a local tarball
+pnpm pack && dsh plugin --profile web add ./dsh-file-0.1.0.tgz
+```
+
+### Configuration
+
+The `root` in `cordis.patch.yml` is only the **fallback root when there is no session** (defaults to `process.cwd()`). When the file manager opens, the browser resolves the current conversation's workspace directory and re-pins the root via `setRoot`, so usually nothing needs to change:
+
+```yaml
+- insert:
+    - id: dsh-file
+      name: 'dsh-file'
+      config:
+        root: !!js process.cwd()   # fallback root only, before the file manager pins the session workspace
+```
+
+## Debugging
+
+```sh
+dsh --profile web --dump-config | grep -A4 dsh-file   # confirm the plugin layer is composed
+# Test RPC (requires a running dsh web)
+curl -X POST http://127.0.0.1:3080/api/fileManager/getRoot \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"client-request","rpcId":"t","method":"fileManager/getRoot","payload":{"args":{}}}'
+```
+
+## FAQ
+
+- **RPC returns not found**: almost always the `@deepseek-ai/dsh-typert-protocol` dual-instance problem — check whether the plugin's `node_modules/@deepseek-ai` is a symlink (`ls -la node_modules/@deepseek-ai`); if not, create the link as described above and restart.
+- **Blank editor**: Monaco loads from the jsdelivr CDN; in intranet environments configure a local mirror or wait for the textarea fallback.
+- **Wrong directory opened**: verify the current session's workspace directory (the sidebar title shows the directory name). The file manager auto-runs `setRoot` to the current session's `cwd`; without a session it falls back to `cordis.patch.yml`'s `root`.
+- **Plugin changes have no effect**: host-half changes require restarting `dsh web`; client-half bundle changes only need a page refresh (a rev change triggers a reload).
+
+## License
+
+MIT

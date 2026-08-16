@@ -8,9 +8,12 @@
 # dist/client.js is served at /plugins/dsh-file/client.js and seeded into
 # window.__DSH_BOOT__.
 #
-# `root` pins the workspace the gateway serves (defaults to process.cwd(),
-# i.e. the directory `dsh web` was launched from). Paths outside this root are
-# rejected by the host.
+# `root` is only the FALLBACK root before a session pins one: when the file
+# manager opens, the browser resolves the current conversation's workspace
+# directory (SessionHeader.cwd) and re-pins the gateway root via the
+# `setRoot` RPC, so the tree always reflects the ACTIVE session's workspace
+# rather than the directory `dsh web` was launched from. Paths outside the
+# currently pinned root are rejected by the host.
 - insert:
     - id: dsh-file
       name: 'dsh-file'

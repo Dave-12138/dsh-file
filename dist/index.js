@@ -100,10 +100,11 @@ let FileManagerGateway = (() => {
     let _stat_decorators;
     let _resolve_decorators;
     let _getRoot_decorators;
+    let _setRoot_decorators;
     return _a = class FileManagerGateway extends _classSuper {
             constructor(ctx, config = {}) {
                 super(ctx, 'fileManager');
-                /** Workspace root, pinned by configuration (defaults to process.cwd()). */
+                /** Workspace root served by the gateway; re-pinnable via the setRoot RPC (falls back to config/process.cwd()). */
                 this.root = __runInitializers(this, _instanceExtraInitializers);
                 this.root = nodePath.resolve(config.root ?? process.cwd());
                 // Diagnostics: confirm the gateway is instantiated by the cordis loader.
@@ -254,6 +255,24 @@ let FileManagerGateway = (() => {
             async getRoot() {
                 return { path: this.root };
             }
+            /**
+             * Re-pin the workspace root the gateway serves. The browser calls this with
+             * the CURRENT conversation's workspace directory (SessionHeader.cwd) when
+             * the file manager opens, so the tree always reflects the session's
+             * workspace instead of the process-launch directory. The path must exist
+             * and be a directory; afterwards every operation resolves against it.
+             * @param path - absolute workspace directory, or a path relative to the current root.
+             */
+            async setRoot(path) {
+                const abs = nodePath.isAbsolute(path)
+                    ? nodePath.normalize(path)
+                    : nodePath.resolve(this.root, path);
+                const st = await fs.stat(abs);
+                if (!st.isDirectory())
+                    throw new Error(`not a directory: ${abs}`);
+                this.root = await fs.realpath(abs);
+                return { path: this.root };
+            }
         },
         (() => {
             const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
@@ -267,6 +286,7 @@ let FileManagerGateway = (() => {
             _stat_decorators = [Remote('stat')];
             _resolve_decorators = [Remote('resolve')];
             _getRoot_decorators = [Remote('getRoot')];
+            _setRoot_decorators = [Remote('setRoot')];
             __esDecorate(_a, null, _listDir_decorators, { kind: "method", name: "listDir", static: false, private: false, access: { has: obj => "listDir" in obj, get: obj => obj.listDir }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(_a, null, _readText_decorators, { kind: "method", name: "readText", static: false, private: false, access: { has: obj => "readText" in obj, get: obj => obj.readText }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(_a, null, _writeText_decorators, { kind: "method", name: "writeText", static: false, private: false, access: { has: obj => "writeText" in obj, get: obj => obj.writeText }, metadata: _metadata }, null, _instanceExtraInitializers);
@@ -277,6 +297,7 @@ let FileManagerGateway = (() => {
             __esDecorate(_a, null, _stat_decorators, { kind: "method", name: "stat", static: false, private: false, access: { has: obj => "stat" in obj, get: obj => obj.stat }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(_a, null, _resolve_decorators, { kind: "method", name: "resolve", static: false, private: false, access: { has: obj => "resolve" in obj, get: obj => obj.resolve }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(_a, null, _getRoot_decorators, { kind: "method", name: "getRoot", static: false, private: false, access: { has: obj => "getRoot" in obj, get: obj => obj.getRoot }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(_a, null, _setRoot_decorators, { kind: "method", name: "setRoot", static: false, private: false, access: { has: obj => "setRoot" in obj, get: obj => obj.setRoot }, metadata: _metadata }, null, _instanceExtraInitializers);
             if (_metadata) Object.defineProperty(_a, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
         })(),
         _a.inject = [],

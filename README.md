@@ -1,17 +1,60 @@
 # dsh-file
 
-DeepSeek Harness 的 VS Code 风格文件管理器插件：在 Web 侧边栏浏览、打开、编辑、保存、新建、重命名、删除当前对话工作区的文件。
+[**English**](README.en.md) | **中文**
 
-![sidebar](/docs/sidebar.png)
+> DeepSeek Harness 的 VS Code 风格文件管理器插件：在 Web 侧边栏浏览当前对话工作区的文件，在中间主区域编辑。
+>
+> A VS Code-style file manager plugin for DeepSeek Harness Web: browse the current conversation's workspace from the sidebar and edit files in the center column.
 
 ## 功能
 
-- **侧边栏底部"文件"按钮**：点击后侧边栏主体切换为文件管理器，再点切回工作区/会话列表
-- **文件树**：懒加载目录展开，文件/目录图标区分，悬浮显示重命名/删除操作
-- **编辑器**：Monaco Editor（VS Code 同款内核，从 CDN 加载），按扩展名自动语法高亮；CDN 不可达时降级为纯文本 textarea
-- **编辑与保存**：Ctrl+S 或工具栏"保存"按钮，dirty 标记（●）
+- **侧边栏底部"文件"按钮**：点击后侧边栏主体切换为文件管理器（文件树），再点切回工作区/会话列表
+- **工作区跟随当前对话**：文件管理器打开时自动解析当前会话的工作区目录（`SessionHeader.cwd`），通过 `setRoot` 重新固定网关根目录——不再是启动 `dsh web` 的目录
+- **中间列编辑器（视图标签）**：编辑器注册为中间栏 `conversation.view` 视图（"文件"标签，与"对话/轨迹"并列）。点击文件后在**页面内的会话滚动区**（非弹窗）显示并编辑：Monaco Editor（VS Code 同款内核，从 CDN 加载）按扩展名自动语法高亮；CDN 不可达时降级为纯文本 textarea
+- **主题设置（VS Code 风格）**：编辑器工具栏"主题"按钮打开设置面板——默认浅色，预设主题用**下拉框**选择（浅色/深色/One Dark/GitHub），可自定义背景色/文字色/字号（10–28px），实时应用到 Monaco 与编辑器面板（工具条/状态条/标签随背景联动），自动持久化到 localStorage
+- **主题导入/导出**：像 VS Code 一样把主题保存为 JSON 文件、从文件恢复，方便在不同环境间迁移配色（详见[主题导入/导出](#主题导入--导出)）
+- **编辑与保存**：Ctrl+S 或编辑器内"保存"按钮，dirty 标记（●）；打开多个文件可在顶部标签条切换、每个标签带 ✕ 关闭
 - **文件操作**：新建文件、新建目录、重命名、删除（删除需确认，非空目录拒绝）
-- **工作区边界**：所有路径解析相对插件配置的 `root`，越界路径被 host 拒绝（含 symlink 逃逸防护）
+- **工作区边界**：所有路径解析相对当前固定的 `root`，越界路径被 host 拒绝（含 symlink 逃逸防护）
+
+## 主题导入 / 导出
+
+主题设置面板（编辑器工具栏"主题"按钮）支持把当前主题导出为 JSON 文件，或从 JSON 文件导入恢复——和 VS Code 的主题文件机制一致，方便换机器、换环境时迁移你的配色。
+
+### 导出主题
+
+1. 打开文件编辑器（中间列"文件"视图）。
+2. 点击工具栏 **主题** 按钮，打开主题设置面板。
+3. 点击 **导出主题**，浏览器会下载一个 `dsh-file-theme-YYYY-MM-DD.json` 文件。
+
+导出的 JSON 同时包含本插件字段与 VS Code workbench `colors` 字段：
+
+```json
+{
+  "name": "dsh-file · One Dark",
+  "type": "dsh-file-theme",
+  "version": 1,
+  "background": "#282c34",
+  "foreground": "#abb2bf",
+  "fontSize": 13,
+  "colors": {
+    "editor.background": "#282c34",
+    "editor.foreground": "#abb2bf"
+  }
+}
+```
+
+### 导入主题
+
+1. 打开主题设置面板。
+2. 点击 **导入主题**，选择 JSON 文件。
+
+支持的格式：
+
+- **本插件导出的格式**（`background` / `foreground` / `fontSize`）；
+- **VS Code 主题 JSON**：读取 `colors["editor.background"]` 与 `colors["editor.foreground"]`（`tokenColors` 暂不参与，语法高亮沿用 Monaco 内置配色）。
+
+导入成功后配色立即应用并持久化到 localStorage；文件不是有效 JSON 或缺少有效颜色时，面板会给出错误提示。
 
 ## 架构
 
@@ -21,18 +64,18 @@ DeepSeek Harness 的 VS Code 风格文件管理器插件：在 Web 侧边栏浏�
 |---|---|---|
 | 源码 | `src/index.ts` | `src/client/` |
 | 构建产物 | `dist/index.js`（tsc，保留标准装饰器） | `dist/client.js`（esbuild，ModuleLoader bundle） |
-| 职责 | 文件系统 RPC | 侧边栏 UI + remote 调用 |
+| 职责 | 文件系统 RPC | 侧边栏文件树 + 中间列编辑器视图 |
 | 关键 API | `class FileManagerGateway extends TypertRemoteService` + `@Remote()` | `ctx.slots.register()`、`ctx.remote.$mount()` |
 
 ### Host ↔ Client 通信（Typert Remote）
 
-浏览器不能直接访问文件系统，所以 host 半把文件操作暴露为 RPC 端点（namespace `fileManager`：`listDir` / `readText` / `writeText` / `createFile` / `createDirectory` / `rename` / `delete` / `stat` / `resolve` / `getRoot`）。客户端通过 `ctx.remote.$mount(TYPERT_REMOTE)` 挂载调用面，再用 `ctx.get('remote.fileManager')` 解析服务后调用。
+浏览器不能直接访问文件系统，所以 host 半把文件操作暴露为 RPC 端点（namespace `fileManager`：`listDir` / `readText` / `writeText` / `createFile` / `createDirectory` / `rename` / `delete` / `stat` / `resolve` / `getRoot` / `setRoot`）。客户端通过 `ctx.remote.$mount(TYPERT_REMOTE)` 挂载调用面，再用 `ctx.get('remote.fileManager')` 解析服务后调用。`setRoot` 用于把网关根目录重新固定到当前会话的工作区目录。
 
 **关键约束（SRC descriptor 契约）**：Typert gateway 用 `Function.prototype.toString` 从方法签名提取 wire 参数名——所以 host 方法必须用**扁平参数**（`listDir(path: string)`，不是 `listDir(input: {...})`），参数名即客户端发送的字段名。两半的命名必须一致。
 
 ### 面板切换机制
 
-侧边栏主区域是 `sidebar.workspaces` 单席位 slot（被工作区浏览器以 priority 0 占用）。插件点击按钮时以 `priority: -1` 注册自己的 shadow 条目——单席位 slot 渲染 priority 最低的条目，所以文件管理器成为 winner；关闭时注销条目，工作区浏览器自动恢复。
+侧边栏主区域是 `sidebar.workspaces` 单席位 slot（被工作区浏览器以 priority 0 占用）。插件点击按钮时以 `priority: -1` 注册自己的 shadow 条目——单席位 slot 渲染 priority 最低的条目，所以文件管理器成为 winner；关闭时注销条目，工作区浏览器自动恢复。文件树点击文件后，编辑器在 `conversation.view` 注册的"文件"视图里渲染——即中间列会话滚动区（与 chat / trajectory 并列），点会话头部的"文件"标签进入，非弹窗。
 
 ### 依赖解析（重要）
 
@@ -80,14 +123,14 @@ pnpm pack && dsh plugin --profile web add ./dsh-file-0.1.0.tgz
 
 ### 配置
 
-`cordis.patch.yml` 中的 `root` 控制文件管理器的根目录（默认 `process.cwd()`，即启动 `dsh web` 的目录）：
+`cordis.patch.yml` 中的 `root` 只是**无会话时的兜底根目录**（默认 `process.cwd()`）。文件管理器打开时，浏览器会解析当前对话的工作区目录并通过 `setRoot` 重新固定根目录，因此一般无需改动：
 
 ```yaml
 - insert:
     - id: dsh-file
       name: 'dsh-file'
       config:
-        root: !!js process.cwd()   # 改成其他工作区路径
+        root: !!js process.cwd()   # 仅作为打开文件管理器前的兜底根目录
 ```
 
 ## 调试
@@ -104,6 +147,7 @@ curl -X POST http://127.0.0.1:3080/api/fileManager/getRoot \
 
 - **RPC 返回 not found**：几乎总是 `@deepseek-ai/dsh-typert-protocol` 双实例问题——检查插件 `node_modules/@deepseek-ai` 是否是 symlink（`ls -la node_modules/@deepseek-ai`），不是则按上文建立链接后重启。
 - **编辑器空白**：Monaco 从 jsdelivr CDN 加载，内网环境需配置本地镜像或等待 textarea 降级。
+- **打开的是错误的目录**：确认当前会话的工作区目录正确（侧边栏标题显示目录名）。文件管理器打开时自动 `setRoot` 到当前会话的 `cwd`；若打开前无会话，则回退到 `cordis.patch.yml` 的 `root`。
 - **插件改了不生效**：host 半改动需重启 `dsh web`；client 半 bundle 改动后刷新页面即可（rev 变化触发重新加载）。
 
 ## License

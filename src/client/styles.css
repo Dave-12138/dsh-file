@@ -1,6 +1,8 @@
 /* dsh-file plugin styles. Kept dependency-free: plain CSS with DSH design
  * tokens where available, sensible fallbacks elsewhere. */
 
+/* ── sidebar tree panel ─────────────────────────────────────────────────── */
+
 .dshf-root {
   display: flex;
   flex-direction: column;
@@ -45,6 +47,10 @@
 .dshf-btn:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05));
 }
+.dshf-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 .dshf-error {
   padding: 8px 12px;
@@ -52,19 +58,11 @@
   font-size: 12px;
 }
 
-.dshf-body {
-  display: flex;
+.dshf-tree-pane {
   flex: 1;
   min-height: 0;
-}
-
-.dshf-tree {
-  width: 46%;
-  min-width: 140px;
-  max-width: 260px;
-  border-right: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
-  overflow: hidden;
   display: flex;
+  overflow: hidden;
 }
 
 .dshf-tree-scroll {
@@ -141,68 +139,6 @@
   opacity: 1;
 }
 
-.dshf-editor {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.dshf-editor-host {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.dshf-editor-tabbar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
-  flex: none;
-  font-size: 12px;
-}
-
-.dshf-tabname {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.dshf-dirty {
-  color: var(--dsw-alias-warning-fg, #e8590c);
-}
-
-.dshf-monaco {
-  flex: 1;
-  min-height: 0;
-}
-
-.dshf-textarea {
-  flex: 1;
-  min-height: 0;
-  resize: none;
-  border: none;
-  outline: none;
-  padding: 8px 12px;
-  font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
-  font-size: 13px;
-  line-height: 1.5;
-  background: transparent;
-  color: inherit;
-}
-
-.dshf-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  color: var(--dsw-alias-label-tertiary, #868e96);
-  font-size: 12px;
-}
-
 .dshf-status {
   display: flex;
   align-items: center;
@@ -215,6 +151,13 @@
   min-height: 22px;
 }
 
+/* Status row placed at the TOP of the editor view (below the toolbar):
+ * the open-file tab strip reads top-down, so the border flips sides. */
+.dshf-status-top {
+  border-top: none;
+  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
+}
+
 .dshf-status-busy {
   color: var(--dsw-alias-accent-strong, #4dabf7);
 }
@@ -225,16 +168,311 @@
   white-space: nowrap;
 }
 
-.dshf-status-path {
+.dshf-status-hint {
   margin-left: auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 50%;
+  color: var(--dsw-alias-label-tertiary, #868e96);
 }
 
 .dshf-hidden {
   display: none;
+}
+
+/* ── center-column editor view (conversation.view) ───────────────────────── */
+
+/* Renders IN the conversation center column's view area (inside the session
+ * scroll body), alongside chat / trajectory — never a popup. Fills the view
+ * area the session body reserves for the active view.
+ *
+ * The whole view is ONE cohesive surface. Colors come from the editor theme
+ * (themeStore) via CSS custom properties with LIGHT defaults (the default
+ * theme is light), so the chrome always matches the Monaco background
+ * instead of clashing with the page. */
+.dshf-editor-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  position: relative;
+  background: var(--dshf-bg, #ffffff);
+  color: var(--dshf-fg, #1f2328);
+  font-size: 13px;
+}
+
+.dshf-editor-view .dshf-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--dshf-chrome, #f3f3f3);
+  border-bottom: 1px solid var(--dshf-border, #e0e0e0);
+  flex: none;
+  font-size: 12px;
+  color: var(--dshf-fg, #1f2328);
+}
+
+.dshf-editor-view .dshf-tabname {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--dshf-fg, #1f2328);
+}
+.dshf-editor-view .dshf-dirty {
+  color: var(--dshf-dirty, #c2410c);
+}
+
+.dshf-editor-view .dshf-editor-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dshf-muted, #868e96);
+  font-size: 11px;
+}
+
+.dshf-editor-view .dshf-status-top {
+  background: var(--dshf-chrome, #f3f3f3);
+  color: var(--dshf-muted, #868e96);
+}
+
+.dshf-editor-view .dshf-empty {
+  color: var(--dshf-muted, #868e96);
+}
+
+.dshf-editor-view .dshf-monaco {
+  flex: 1;
+  min-height: 0;
+}
+
+.dshf-editor-view .dshf-textarea {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  border: none;
+  outline: none;
+  padding: 8px 12px;
+  font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: var(--dshf-font-size, 13px);
+  line-height: 1.5;
+  background: var(--dshf-bg, #ffffff);
+  color: var(--dshf-fg, #1f2328);
+}
+
+.dshf-editor-view .dshf-btn {
+  color: var(--dshf-fg, #1f2328);
+  border-color: var(--dshf-border, #d0d0d0);
+}
+.dshf-editor-view .dshf-btn:hover {
+  background: var(--dshf-chip, #ececec);
+}
+
+.dshf-editor-view .dshf-tab-chip {
+  background: var(--dshf-chip, #ececec);
+  border-color: var(--dshf-border, #d0d0d0);
+  color: var(--dshf-fg, #1f2328);
+}
+.dshf-editor-view .dshf-tab-chip:hover {
+  background: var(--dshf-border, #c9c9c9);
+}
+.dshf-editor-view .dshf-tab-chip-active {
+  background: var(--dshf-accent, #094771);
+  border-color: var(--dshf-accent, #094771);
+  color: #ffffff;
+}
+.dshf-editor-view .dshf-tab-chip-close:hover {
+  background: var(--dshf-border, rgba(0, 0, 0, 0.1));
+}
+
+/* ── editor theme panel (VS Code style) ──────────────────────────────────── */
+
+.dshf-theme-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.dshf-theme-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  width: 252px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 10px;
+  background: var(--dshf-chrome, #f3f3f3);
+  border: 1px solid var(--dshf-border, #d0d0d0);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  color: var(--dshf-fg, #1f2328);
+  font-size: 12px;
+}
+
+.dshf-theme-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dshf-theme-label {
+  flex: none;
+  width: 44px;
+  color: var(--dshf-muted, #868e96);
+}
+
+.dshf-theme-select {
+  flex: 1;
+  min-width: 0;
+  background: var(--dshf-chip, #ececec);
+  border: 1px solid var(--dshf-border, #d0d0d0);
+  border-radius: 6px;
+  color: var(--dshf-fg, #1f2328);
+  font-size: 12px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.dshf-theme-select:focus {
+  outline: none;
+  border-color: var(--dshf-accent, #094771);
+}
+
+.dshf-theme-row input[type='color'] {
+  width: 34px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--dshf-border, #d0d0d0);
+  border-radius: 4px;
+  background: var(--dshf-chip, #ececec);
+  cursor: pointer;
+}
+
+.dshf-theme-hex {
+  font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 11px;
+  color: var(--dshf-muted, #868e96);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dshf-theme-error {
+  color: var(--dshf-dirty, #c2410c);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.dshf-hidden-input {
+  display: none;
+}
+
+.dshf-theme-fontsize {
+  width: 52px;
+  background: var(--dshf-chip, #ececec);
+  border: 1px solid var(--dshf-border, #d0d0d0);
+  border-radius: 4px;
+  color: var(--dshf-fg, #1f2328);
+  font-size: 12px;
+  padding: 1px 4px;
+}
+
+.dshf-theme-unit {
+  color: var(--dshf-muted, #868e96);
+  font-size: 11px;
+}
+
+.dshf-theme-actions {
+  justify-content: flex-end;
+  border-top: 1px solid var(--dshf-border, rgba(0, 0, 0, 0.1));
+  padding-top: 8px;
+}
+
+.dshf-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--dsw-alias-label-tertiary, #868e96);
+  font-size: 12px;
+}
+
+.dshf-tabs-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  max-width: 60%;
+}
+
+/* One open-file tab: a chip container holding the (clickable) name and a
+ * per-file close "✕". Left-aligned in the status row. */
+.dshf-tab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12));
+  border-radius: 6px;
+  color: var(--dsw-alias-label-secondary, #495057);
+  font-size: 11px;
+  padding: 1px 2px 1px 6px;
+  white-space: nowrap;
+  max-width: 160px;
+}
+.dshf-tab-chip:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05));
+}
+.dshf-tab-chip-active {
+  background: var(--dsw-alias-interactive-bg-selected, rgba(77, 171, 247, 0.15));
+  border-color: var(--dsw-alias-accent-strong, #4dabf7);
+}
+
+/* Filename part of a tab (click to focus). */
+.dshf-tab-chip-name {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.dshf-tab-chip-name:hover {
+  text-decoration: underline;
+}
+
+/* Per-file close button. */
+.dshf-tab-chip-close {
+  background: transparent;
+  border: none;
+  padding: 0 3px;
+  margin: 0;
+  font-size: 10px;
+  line-height: 1;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.55;
+  border-radius: 4px;
+  flex: none;
+}
+.dshf-tab-chip-close:hover {
+  opacity: 1;
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.08));
+}
+
+/* Busy / notice group pushed to the right end of the status row. */
+.dshf-status-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
 }
 
 /* Sidebar footer toggle button */

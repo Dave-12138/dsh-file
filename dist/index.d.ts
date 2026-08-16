@@ -65,8 +65,8 @@ export declare function resolveInside(root: string, requested: string): Promise<
  */
 export declare class FileManagerGateway extends TypertRemoteService {
     static inject: string[];
-    /** Workspace root, pinned by configuration (defaults to process.cwd()). */
-    private readonly root;
+    /** Workspace root served by the gateway; re-pinnable via the setRoot RPC (falls back to config/process.cwd()). */
+    private root;
     constructor(ctx: Context, config?: {
         root?: string;
     });
@@ -133,6 +133,17 @@ export declare class FileManagerGateway extends TypertRemoteService {
     }>;
     /** Return the workspace root the gateway serves (the client's initial directory). */
     getRoot(): Promise<{
+        path: string;
+    }>;
+    /**
+     * Re-pin the workspace root the gateway serves. The browser calls this with
+     * the CURRENT conversation's workspace directory (SessionHeader.cwd) when
+     * the file manager opens, so the tree always reflects the session's
+     * workspace instead of the process-launch directory. The path must exist
+     * and be a directory; afterwards every operation resolves against it.
+     * @param path - absolute workspace directory, or a path relative to the current root.
+     */
+    setRoot(path: string): Promise<{
         path: string;
     }>;
 }
