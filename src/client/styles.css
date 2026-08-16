@@ -1,0 +1,263 @@
+/* dsh-file plugin styles. Kept dependency-free: plain CSS with DSH design
+ * tokens where available, sensible fallbacks elsewhere. */
+
+.dshf-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+.dshf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
+  flex: none;
+}
+
+.dshf-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.dshf-spacer {
+  flex: 1;
+}
+
+.dshf-btn {
+  background: transparent;
+  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.15));
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  line-height: 1.5;
+}
+.dshf-btn:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05));
+}
+
+.dshf-error {
+  padding: 8px 12px;
+  color: var(--dsw-alias-danger-fg, #c92a2a);
+  font-size: 12px;
+}
+
+.dshf-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.dshf-tree {
+  width: 46%;
+  min-width: 140px;
+  max-width: 260px;
+  border-right: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
+  overflow: hidden;
+  display: flex;
+}
+
+.dshf-tree-scroll {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 4px 0;
+}
+
+.dshf-tree-list {
+  min-width: max-content;
+}
+
+.dshf-tree-hint {
+  padding: 4px 12px;
+  color: var(--dsw-alias-label-tertiary, #868e96);
+  font-size: 12px;
+}
+
+.dshf-node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  min-height: 22px;
+}
+.dshf-node:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05));
+}
+.dshf-selected {
+  background: var(--dsw-alias-interactive-bg-selected, rgba(77, 171, 247, 0.15));
+}
+
+.dshf-caret {
+  width: 12px;
+  flex: none;
+  font-size: 10px;
+  color: var(--dsw-alias-label-tertiary, #868e96);
+}
+
+.dshf-icon {
+  flex: none;
+  font-size: 13px;
+}
+
+.dshf-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.dshf-node-actions {
+  display: none;
+  margin-left: auto;
+  gap: 2px;
+  flex: none;
+}
+.dshf-node:hover .dshf-node-actions {
+  display: inline-flex;
+}
+
+.dshf-mini {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+  opacity: 0.7;
+}
+.dshf-mini:hover {
+  opacity: 1;
+}
+
+.dshf-editor {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dshf-editor-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.dshf-editor-tabbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
+  flex: none;
+  font-size: 12px;
+}
+
+.dshf-tabname {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dshf-dirty {
+  color: var(--dsw-alias-warning-fg, #e8590c);
+}
+
+.dshf-monaco {
+  flex: 1;
+  min-height: 0;
+}
+
+.dshf-textarea {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  border: none;
+  outline: none;
+  padding: 8px 12px;
+  font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.5;
+  background: transparent;
+  color: inherit;
+}
+
+.dshf-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--dsw-alias-label-tertiary, #868e96);
+  font-size: 12px;
+}
+
+.dshf-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-top: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
+  flex: none;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary, #868e96);
+  min-height: 22px;
+}
+
+.dshf-status-busy {
+  color: var(--dsw-alias-accent-strong, #4dabf7);
+}
+
+.dshf-status-notice {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dshf-status-path {
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 50%;
+}
+
+.dshf-hidden {
+  display: none;
+}
+
+/* Sidebar footer toggle button */
+.dshf-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--dsw-alias-label-secondary, #495057);
+  cursor: pointer;
+  padding: 6px 10px;
+  flex: 1;
+  min-width: 0;
+}
+.dshf-toggle:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06));
+}
+
+.dshf-toggle-label {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
