@@ -1,6 +1,30 @@
-# dsh-file
+<p align="center">
+  <img src="docs/hero.svg" alt="dsh-file — a VS Code-style file manager plugin for DeepSeek Harness Web" width="100%" />
+</p>
 
-[**中文**](README.md) | **English**
+<p align="center">
+  <a href="https://github.com/chengzhi43/dsh-file">GitHub</a> ·
+  <a href="#installation">Installation</a> ·
+  <a href="#themes">Theme import/export</a> ·
+  <a href="#faq">FAQ</a> ·
+  <a href="https://github.com/chengzhi43/dsh-file/issues">Issues</a> ·
+  <a href="https://github.com/chengzhi43/dsh-file/releases">Releases</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/chengzhi43/dsh-file/releases"><img alt="version" src="https://img.shields.io/badge/version-0.1.0-0969da?style=flat" /></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat" /></a>
+  <img alt="DeepSeek Harness" src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-4dabf7?style=flat" />
+  <a href="https://github.com/chengzhi43/dsh-file"><img alt="stars" src="https://img.shields.io/github/stars/chengzhi43/dsh-file?style=flat&label=stars" /></a>
+  <img alt="editor" src="https://img.shields.io/badge/editor-Monaco-7ee787?style=flat" />
+  <img alt="workspace" src="https://img.shields.io/badge/workspace-current%20conversation-green?style=flat" />
+</p>
+
+<p align="center"><b>English</b> · <a href="README.md">简体中文</a></p>
+
+---
+
+# dsh-file
 
 > A VS Code-style file manager plugin for DeepSeek Harness Web: browse the current conversation's workspace from the sidebar and edit files in the center column.
 >
@@ -12,12 +36,14 @@
 - **Workspace follows the active conversation**: opening the file manager resolves the current session's workspace directory (`SessionHeader.cwd`) and re-pins the gateway root via `setRoot` — no longer the directory `dsh web` was launched from
 - **Center-column editor (view tab)**: the editor is registered as a `conversation.view` view ("Files" tab, alongside Chat/Trajectory). Clicking a file opens it **inside the session scroll area of the page** (not a popup): Monaco Editor (the same kernel VS Code uses, loaded from CDN) with extension-based syntax highlighting; falls back to a plain textarea when the CDN is unreachable
 - **Theme settings (VS Code style)**: the "Theme" button in the editor toolbar opens a settings panel — light by default, presets selected via a **dropdown** (Light/Dark/One Dark/GitHub), plus custom background / foreground colors and font size (10–28px), applied live to Monaco and the editor chrome (toolbar/status/tabs follow the background), persisted to localStorage
-- **Theme import/export**: export the current theme to a JSON file and import it back, just like VS Code, to migrate your colors between environments (see [Theme import/export](#theme-importexport))
+- **Theme import/export**: export the current theme to a JSON file and import it back, just like VS Code, to migrate your colors between environments (see [Theme import/export](#themes))
 - **Edit & save**: Ctrl+S or the "Save" button in the editor, dirty marker (●); multiple open files switch via the top tab strip, each tab has a ✕ close button
 - **File operations**: create file, create directory, rename, delete (delete requires confirmation; non-empty directories are rejected)
 - **Workspace boundary**: every path resolves against the currently pinned `root`; escaping paths are rejected by the host (including symlink-escape protection)
 
 ## Theme import/export
+
+<a id="themes"></a>
 
 The theme panel (the "Theme" button in the editor toolbar) can export the current theme to a JSON file or import one back — the same idea as VS Code theme files, handy for moving your colors across machines or environments.
 
@@ -102,7 +128,7 @@ Build outputs:
 
 ## Installation
 
-### Local install (development)
+<a id="installation"></a>
 
 ```sh
 # Run from dsh-file's parent directory so ./dsh-file is not resolved as a subdirectory
@@ -145,6 +171,8 @@ curl -X POST http://127.0.0.1:3080/api/fileManager/getRoot \
 
 ## FAQ
 
+<a id="faq"></a>
+
 - **RPC returns not found**: almost always the `@deepseek-ai/dsh-typert-protocol` dual-instance problem — check whether the plugin's `node_modules/@deepseek-ai` is a symlink (`ls -la node_modules/@deepseek-ai`); if not, create the link as described above and restart.
 - **Blank editor**: Monaco loads from the jsdelivr CDN; in intranet environments configure a local mirror or wait for the textarea fallback.
 - **Wrong directory opened**: verify the current session's workspace directory (the sidebar title shows the directory name). The file manager auto-runs `setRoot` to the current session's `cwd`; without a session it falls back to `cordis.patch.yml`'s `root`.
@@ -152,4 +180,4 @@ curl -X POST http://127.0.0.1:3080/api/fileManager/getRoot \
 
 ## License
 
-MIT
+[MIT](LICENSE)

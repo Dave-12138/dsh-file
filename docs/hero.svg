@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="dsh-file hero — a VS Code-style file manager plugin for DeepSeek Harness Web">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16171c"/>
+      <stop offset="1" stop-color="#22242b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4dabf7"/>
+      <stop offset="1" stop-color="#9775fa"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="360" fill="url(#bg)"/>
+  <rect width="1280" height="5" fill="url(#accent)"/>
+
+  <!-- subtle dot grid -->
+  <g fill="#ffffff" opacity="0.04">
+    <circle cx="40" cy="40" r="2"/><circle cx="120" cy="40" r="2"/><circle cx="200" cy="40" r="2"/>
+    <circle cx="280" cy="40" r="2"/><circle cx="360" cy="40" r="2"/><circle cx="440" cy="40" r="2"/>
+    <circle cx="520" cy="40" r="2"/><circle cx="600" cy="40" r="2"/><circle cx="680" cy="40" r="2"/>
+    <circle cx="760" cy="40" r="2"/><circle cx="840" cy="40" r="2"/><circle cx="920" cy="40" r="2"/>
+    <circle cx="1000" cy="40" r="2"/><circle cx="1080" cy="40" r="2"/><circle cx="1160" cy="40" r="2"/>
+    <circle cx="1240" cy="40" r="2"/><circle cx="40" cy="120" r="2"/><circle cx="120" cy="120" r="2"/>
+    <circle cx="200" cy="120" r="2"/><circle cx="280" cy="120" r="2"/><circle cx="360" cy="120" r="2"/>
+    <circle cx="440" cy="120" r="2"/><circle cx="520" cy="120" r="2"/><circle cx="600" cy="120" r="2"/>
+    <circle cx="680" cy="120" r="2"/><circle cx="760" cy="120" r="2"/><circle cx="840" cy="120" r="2"/>
+    <circle cx="920" cy="120" r="2"/><circle cx="1000" cy="120" r="2"/><circle cx="1080" cy="120" r="2"/>
+    <circle cx="1160" cy="120" r="2"/><circle cx="1240" cy="120" r="2"/><circle cx="40" cy="200" r="2"/>
+    <circle cx="120" cy="200" r="2"/><circle cx="200" cy="200" r="2"/><circle cx="280" cy="200" r="2"/>
+    <circle cx="360" cy="200" r="2"/><circle cx="440" cy="200" r="2"/><circle cx="520" cy="200" r="2"/>
+    <circle cx="600" cy="200" r="2"/><circle cx="680" cy="200" r="2"/><circle cx="760" cy="200" r="2"/>
+    <circle cx="840" cy="200" r="2"/><circle cx="920" cy="200" r="2"/><circle cx="1000" cy="200" r="2"/>
+    <circle cx="1080" cy="200" r="2"/><circle cx="1160" cy="200" r="2"/><circle cx="1240" cy="200" r="2"/>
+    <circle cx="40" cy="280" r="2"/><circle cx="120" cy="280" r="2"/><circle cx="200" cy="280" r="2"/>
+    <circle cx="280" cy="280" r="2"/><circle cx="360" cy="280" r="2"/><circle cx="440" cy="280" r="2"/>
+    <circle cx="520" cy="280" r="2"/><circle cx="600" cy="280" r="2"/><circle cx="680" cy="280" r="2"/>
+    <circle cx="760" cy="280" r="2"/><circle cx="840" cy="280" r="2"/><circle cx="920" cy="280" r="2"/>
+    <circle cx="1000" cy="280" r="2"/><circle cx="1080" cy="280" r="2"/><circle cx="1160" cy="280" r="2"/>
+    <circle cx="1240" cy="280" r="2"/><circle cx="40" cy="340" r="2"/><circle cx="120" cy="340" r="2"/>
+    <circle cx="200" cy="340" r="2"/><circle cx="280" cy="340" r="2"/><circle cx="360" cy="340" r="2"/>
+    <circle cx="440" cy="340" r="2"/><circle cx="520" cy="340" r="2"/><circle cx="600" cy="340" r="2"/>
+    <circle cx="680" cy="340" r="2"/><circle cx="760" cy="340" r="2"/><circle cx="840" cy="340" r="2"/>
+    <circle cx="920" cy="340" r="2"/><circle cx="1000" cy="340" r="2"/><circle cx="1080" cy="340" r="2"/>
+    <circle cx="1160" cy="340" r="2"/><circle cx="1240" cy="340" r="2"/>
+  </g>
+
+  <!-- title block -->
+  <text x="640" y="86" text-anchor="middle" font-family="sans-serif" font-size="54" font-weight="700" fill="#f5f7fa">dsh-file</text>
+  <text x="640" y="124" text-anchor="middle" font-family="sans-serif" font-size="19" fill="#aeb6c2">VS Code-style file manager for DeepSeek Harness Web</text>
+
+  <!-- pill -->
+  <g transform="translate(640, 160)">
+    <rect x="-132" y="-17" width="264" height="34" rx="17" fill="#4dabf7" fill-opacity="0.14" stroke="#4dabf7" stroke-opacity="0.5"/>
+    <circle cx="-106" cy="0" r="5" fill="#4dabf7"/>
+    <text x="-92" y="5" font-family="sans-serif" font-size="14" fill="#8ecbff">DeepSeek Harness Plugin</text>
+  </g>
+
+  <!-- left: file tree card -->
+  <g transform="translate(72, 208)">
+    <rect width="320" height="122" rx="10" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.09"/>
+    <text x="14" y="24" font-family="sans-serif" font-size="11" letter-spacing="1" fill="#8b93a1">EXPLORER</text>
+    <g font-family="sans-serif" font-size="12" fill="#c9d1d9">
+      <rect x="14" y="38" width="11" height="11" rx="2" fill="#e2b93d"/>
+      <text x="32" y="48">dsh-file</text>
+      <rect x="28" y="58" width="11" height="11" rx="2" fill="#e2b93d"/>
+      <text x="46" y="68">src</text>
+      <rect x="42" y="78" width="11" height="11" rx="2" fill="#4dabf7"/>
+      <text x="60" y="88">index.ts</text>
+      <rect x="42" y="94" width="11" height="11" rx="2" fill="#e2b93d"/>
+      <text x="60" y="104">client</text>
+      <rect x="56" y="108" width="11" height="11" rx="2" fill="#9d7bfa"/>
+      <text x="74" y="118">FileEditorView.tsx</text>
+    </g>
+  </g>
+
+  <!-- right: editor mock card -->
+  <g transform="translate(888, 208)">
+    <rect width="320" height="122" rx="10" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.09"/>
+    <g>
+      <rect x="14" y="16" width="160" height="8" rx="4" fill="#7ee787" fill-opacity="0.85"/>
+      <rect x="14" y="32" width="40" height="8" rx="4" fill="#4dabf7"/>
+      <rect x="58" y="32" width="120" height="8" rx="4" fill="#c9d1d9" fill-opacity="0.7"/>
+      <rect x="14" y="48" width="30" height="8" rx="4" fill="#4dabf7"/>
+      <rect x="48" y="48" width="180" height="8" rx="4" fill="#c9d1d9" fill-opacity="0.7"/>
+      <rect x="14" y="64" width="70" height="8" rx="4" fill="#e2b93d"/>
+      <rect x="88" y="64" width="110" height="8" rx="4" fill="#c9d1d9" fill-opacity="0.7"/>
+      <rect x="14" y="80" width="200" height="8" rx="4" fill="#c9d1d9" fill-opacity="0.7"/>
+      <rect x="14" y="96" width="150" height="8" rx="4" fill="#9d7bfa" fill-opacity="0.8"/>
+    </g>
+  </g>
+
+  <!-- bottom accent strip -->
+  <rect y="355" width="1280" height="5" fill="url(#accent)"/>
+</svg>

@@ -1,6 +1,30 @@
-# dsh-file
+<p align="center">
+  <img src="docs/hero.svg" alt="dsh-file — DeepSeek Harness 的 VS Code 风格文件管理器插件" width="100%" />
+</p>
 
-[**English**](README.en.md) | **中文**
+<p align="center">
+  <a href="https://github.com/chengzhi43/dsh-file">GitHub</a> ·
+  <a href="#安装">安装</a> ·
+  <a href="#themes">主题导入导出</a> ·
+  <a href="#常见问题">FAQ</a> ·
+  <a href="https://github.com/chengzhi43/dsh-file/issues">反馈 Issues</a> ·
+  <a href="https://github.com/chengzhi43/dsh-file/releases">Releases</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/chengzhi43/dsh-file/releases"><img alt="version" src="https://img.shields.io/badge/version-0.1.0-0969da?style=flat" /></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat" /></a>
+  <img alt="DeepSeek Harness" src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-4dabf7?style=flat" />
+  <a href="https://github.com/chengzhi43/dsh-file"><img alt="stars" src="https://img.shields.io/github/stars/chengzhi43/dsh-file?style=flat&label=stars" /></a>
+  <img alt="editor" src="https://img.shields.io/badge/editor-Monaco-7ee787?style=flat" />
+  <img alt="workspace" src="https://img.shields.io/badge/workspace-current%20conversation-green?style=flat" />
+</p>
+
+<p align="center"><a href="README.en.md">English</a> · <b>简体中文</b></p>
+
+---
+
+# dsh-file
 
 > DeepSeek Harness 的 VS Code 风格文件管理器插件：在 Web 侧边栏浏览当前对话工作区的文件，在中间主区域编辑。
 >
@@ -12,12 +36,14 @@
 - **工作区跟随当前对话**：文件管理器打开时自动解析当前会话的工作区目录（`SessionHeader.cwd`），通过 `setRoot` 重新固定网关根目录——不再是启动 `dsh web` 的目录
 - **中间列编辑器（视图标签）**：编辑器注册为中间栏 `conversation.view` 视图（"文件"标签，与"对话/轨迹"并列）。点击文件后在**页面内的会话滚动区**（非弹窗）显示并编辑：Monaco Editor（VS Code 同款内核，从 CDN 加载）按扩展名自动语法高亮；CDN 不可达时降级为纯文本 textarea
 - **主题设置（VS Code 风格）**：编辑器工具栏"主题"按钮打开设置面板——默认浅色，预设主题用**下拉框**选择（浅色/深色/One Dark/GitHub），可自定义背景色/文字色/字号（10–28px），实时应用到 Monaco 与编辑器面板（工具条/状态条/标签随背景联动），自动持久化到 localStorage
-- **主题导入/导出**：像 VS Code 一样把主题保存为 JSON 文件、从文件恢复，方便在不同环境间迁移配色（详见[主题导入/导出](#主题导入--导出)）
+- **主题导入/导出**：像 VS Code 一样把主题保存为 JSON 文件、从文件恢复，方便在不同环境间迁移配色（详见[主题导入/导出](#themes)）
 - **编辑与保存**：Ctrl+S 或编辑器内"保存"按钮，dirty 标记（●）；打开多个文件可在顶部标签条切换、每个标签带 ✕ 关闭
 - **文件操作**：新建文件、新建目录、重命名、删除（删除需确认，非空目录拒绝）
 - **工作区边界**：所有路径解析相对当前固定的 `root`，越界路径被 host 拒绝（含 symlink 逃逸防护）
 
-## 主题导入 / 导出
+## 主题导入/导出
+
+<a id="themes"></a>
 
 主题设置面板（编辑器工具栏"主题"按钮）支持把当前主题导出为 JSON 文件，或从 JSON 文件导入恢复——和 VS Code 的主题文件机制一致，方便换机器、换环境时迁移你的配色。
 
@@ -102,8 +128,6 @@ node build.mjs --watch            # 只 watch client（host 改动需重跑）
 
 ## 安装
 
-### 本地安装（开发）
-
 ```sh
 # 在 dsh-file 的父目录执行，避免 ./dsh-file 被解析成子目录
 cd /path/to/dsh-plugin
@@ -152,4 +176,4 @@ curl -X POST http://127.0.0.1:3080/api/fileManager/getRoot \
 
 ## License
 
-MIT
+[MIT](LICENSE)
