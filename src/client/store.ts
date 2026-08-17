@@ -123,3 +123,37 @@ export function resetAll(): void {
   activePath = null;
   emit();
 }
+
+// ── sidebar visibility sync ────────────────────────────────────────────────
+// The center "文件" view (FileEditorView) is mounted only while it is the
+// ACTIVE conversation view. It reports that fact here so the sidebar tree
+// panel can follow: "文件" tab active → sidebar shows the workspace tree;
+// switching back to "对话" (or any other view) → sidebar returns to the
+// workspace/session browser.
+
+let editorViewActive = false;
+const viewListeners = new Set<() => void>();
+
+function emitView(): void {
+  for (const listener of viewListeners) listener();
+}
+
+/** Called by the editor view on mount (true) / unmount (false). */
+export function setEditorViewActive(active: boolean): void {
+  if (editorViewActive === active) return;
+  editorViewActive = active;
+  emitView();
+}
+
+/** Whether the "文件" conversation view is currently the active view. */
+export function isEditorViewActive(): boolean {
+  return editorViewActive;
+}
+
+/** Subscribe to editor-view activation changes (returns the disposer). */
+export function subscribeEditorViewActive(listener: () => void): () => void {
+  viewListeners.add(listener);
+  return () => {
+    viewListeners.delete(listener);
+  };
+}

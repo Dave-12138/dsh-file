@@ -279,6 +279,25 @@ function resetAll() {
   activePath = null;
   emit();
 }
+var editorViewActive = false;
+var viewListeners = /* @__PURE__ */ new Set();
+function emitView() {
+  for (const listener of viewListeners) listener();
+}
+function setEditorViewActive(active) {
+  if (editorViewActive === active) return;
+  editorViewActive = active;
+  emitView();
+}
+function isEditorViewActive() {
+  return editorViewActive;
+}
+function subscribeEditorViewActive(listener) {
+  viewListeners.add(listener);
+  return () => {
+    viewListeners.delete(listener);
+  };
+}
 
 // src/client/FileManagerPanel.tsx
 var import_jsx_runtime2 = require("react/jsx-runtime");
@@ -626,6 +645,10 @@ function FileEditorView({ remote, t }) {
   const [notice, setNotice] = (0, import_react5.useState)(null);
   const theme = useEditorTheme();
   const chrome = themeChrome(theme);
+  (0, import_react5.useEffect)(() => {
+    setEditorViewActive(true);
+    return () => setEditorViewActive(false);
+  }, []);
   const saveActive = (0, import_react5.useCallback)(async () => {
     if (active === void 0 || !active.dirty) return;
     setBusy(true);
@@ -1598,6 +1621,11 @@ function apply(ctx) {
     ctx.logger?.info?.("[dsh-file] file manager opened");
   };
   const togglePanel = () => open ? closePanel() : openPanel();
+  const syncSidebarWithView = () => {
+    if (isEditorViewActive()) openPanel();
+    else closePanel();
+  };
+  ctx.effect(() => subscribeEditorViewActive(syncSidebarWithView), "dsh-file: view\u2194sidebar sync");
   ctx.slots.inject("conversation.view", () => ctx.slots.register({
     name: "conversation.view",
     id: "dsh-file",

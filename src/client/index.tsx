@@ -22,6 +22,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import { TYPERT_REMOTE, type FileManagerRemote } from './remote.ts';
 import { FileManagerPanel, type FileManagerSessionHook } from './FileManagerPanel.tsx';
 import { FileEditorView } from './FileEditorView.tsx';
+import { isEditorViewActive, subscribeEditorViewActive } from './store.ts';
 import styles from './styles.css';
 
 // Inject the plugin stylesheet once (the bundle's css is text via esbuild).
@@ -111,6 +112,18 @@ export function apply(ctx: Context) {
   };
 
   const togglePanel = () => (open ? closePanel() : openPanel());
+
+  // ── sidebar visibility sync with the center "文件" view ───────────────────
+  // When the "文件" conversation view becomes active, open the sidebar tree
+  // panel automatically; when the view is switched away (e.g. "对话"), close
+  // it again. openPanel/closePanel are idempotent, so this is safe to run on
+  // every activation change. Manual footer-button toggles still win while the
+  // view stays active.
+  const syncSidebarWithView = () => {
+    if (isEditorViewActive()) openPanel();
+    else closePanel();
+  };
+  ctx.effect(() => subscribeEditorViewActive(syncSidebarWithView), 'dsh-file: view↔sidebar sync');
 
   // ── center-column editor view (conversation.view) ────────────────────────
   // A view tab beside chat / trajectory. The session header renders the tab;

@@ -15,7 +15,7 @@ import type React from 'react';
 import type { FileManagerRemote } from './remote.ts';
 import { unwrap } from './remote.ts';
 import { ensureMonaco } from './monaco.ts';
-import { useActivePath, useTabs, focusTab, closeTab, updateActiveContent, markSaved, closeEditor, type OpenTab } from './store.ts';
+import { useActivePath, useTabs, focusTab, closeTab, updateActiveContent, markSaved, closeEditor, setEditorViewActive, type OpenTab } from './store.ts';
 import {
   useEditorTheme,
   themeChrome,
@@ -48,6 +48,13 @@ export function FileEditorView({ remote, t }: { remote: FileManagerRemote; t?: (
   const [notice, setNotice] = useState<string | null>(null);
   const theme = useEditorTheme();
   const chrome = themeChrome(theme);
+
+  // While the "文件" view is the active conversation view, request the
+  // sidebar tree panel to open; switching to another view closes it again.
+  useEffect(() => {
+    setEditorViewActive(true);
+    return () => setEditorViewActive(false);
+  }, []);
 
   const saveActive = useCallback(async () => {
     if (active === undefined || !active.dirty) return;
