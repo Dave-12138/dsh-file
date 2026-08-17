@@ -22,7 +22,7 @@
   "scripts": {
     "build": "node build.mjs",
     "dev": "node build.mjs --watch",
-    "test": "node --test test/"
+    "test": "node --test \"test/*.test.ts\""
   },
   "dsh": {
     "bundle": {
