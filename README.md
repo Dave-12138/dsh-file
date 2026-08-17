@@ -27,8 +27,53 @@
 # dsh-file
 
 > DeepSeek Harness 的 VS Code 风格文件管理器插件：在 Web 侧边栏浏览当前对话工作区的文件，在中间主区域编辑。
->
+> 
 > A VS Code-style file manager plugin for DeepSeek Harness Web: browse the current conversation's workspace from the sidebar and edit files in the center column.
+
+## 安装
+
+```sh
+# 在 clone 下来的 dsh-file 目录内执行（不是父目录）
+cd /path/to/dsh-file
+dsh plugin --profile web add .
+```
+
+`dsh plugin add` 会把包 pnpm-link 进 profile 并追加到 `dsh.profile.bundles`。**重启 `dsh web` 生效**（client 插件元数据按名缓存，重启后重新扫描）。
+
+### 桌面端（DSH Desktop）安装
+
+桌面端是 [deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 项目（包名 `dsh-plugin-desktop`）。它与 `dsh web` 使用**互相独立的 profile**（桌面端用 `desktop`，`dsh web` 用 `web`），插件**不会自动共享**——只装进 `web` profile 的插件在桌面端不会出现，设置 → 插件列表里也不会显示：
+
+```sh
+# 同样在 dsh-file 目录内执行
+cd /path/to/dsh-file
+dsh plugin --profile desktop add .
+```
+
+安装后**完全退出并重启桌面端**（退出应用，不是关窗口），`dsh-file` 才会出现在侧边栏底部"文件"按钮和设置 → 插件列表中。
+
+> 注意：不要往 `~/.dsh/profiles/desktop/cordis.yml` 里添加插件——桌面端每次启动都会把它重写为空列表 `[]`。插件的正确入口是 profile `package.json` 的 `dsh.profile.bundles` + `dependencies`（`dsh plugin add` 做的正是这件事）。
+
+### 发布安装
+
+```sh
+npm publish                      # 发布到 registry（files 已含 dist/ + cordis.patch.yml）
+dsh plugin --profile web add dsh-file
+# 或本地 tarball
+pnpm pack && dsh plugin --profile web add ./dsh-file-0.1.0.tgz
+```
+
+### 配置
+
+`cordis.patch.yml` 中的 `root` 只是**无会话时的兜底根目录**（默认 `process.cwd()`）。文件管理器打开时，浏览器会解析当前对话的工作区目录并通过 `setRoot` 重新固定根目录，因此一般无需改动：
+
+```yaml
+- insert:
+    - id: dsh-file
+      name: 'dsh-file'
+      config:
+        root: !!js process.cwd()   # 仅作为打开文件管理器前的兜底根目录
+```
 
 ## 功能
 
@@ -87,12 +132,12 @@
 
 插件由两半组成，共用包名 `dsh-file`：
 
-| | Host 半（Node 进程） | Client 半（浏览器 React） |
-|---|---|---|
-| 源码 | `src/index.ts` | `src/client/` |
-| 构建产物 | `dist/index.js`（tsc，保留标准装饰器） | `dist/client.js`（esbuild，ModuleLoader bundle） |
-| 职责 | 文件系统 RPC | 侧边栏文件树 + 中间列编辑器视图 |
-| 关键 API | `class FileManagerGateway extends TypertRemoteService` + `@Remote()` | `ctx.slots.register()`、`ctx.remote.$mount()` |
+|        | Host 半（Node 进程）                                                      | Client 半（浏览器 React）                           |
+| ------ | -------------------------------------------------------------------- | --------------------------------------------- |
+| 源码     | `src/index.ts`                                                       | `src/client/`                                 |
+| 构建产物   | `dist/index.js`（tsc，保留标准装饰器）                                         | `dist/client.js`（esbuild，ModuleLoader bundle） |
+| 职责     | 文件系统 RPC                                                             | 侧边栏文件树 + 中间列编辑器视图                             |
+| 关键 API | `class FileManagerGateway extends TypertRemoteService` + `@Remote()` | `ctx.slots.register()`、`ctx.remote.$mount()`  |
 
 ### Host ↔ Client 通信（Typert Remote）
 
@@ -130,53 +175,9 @@ node build.mjs --watch            # 只 watch client（host 改动需重跑）
 ```
 
 构建产物：
+
 - `dist/index.js` — host 半（Node ESM，tsc 编译以保留标准 stage-3 装饰器；esbuild 会把 `@Remote` 降级为 legacy 形式导致运行时崩溃）
 - `dist/client.js` — client 半（`window.__ModuleLoader__.load({id, factory})` 格式，react 等 seed 词 external）
-
-## 安装
-
-```sh
-# 在 dsh-file 的父目录执行，避免 ./dsh-file 被解析成子目录
-cd /path/to/dsh-plugin
-dsh plugin --profile web add ./dsh-file
-```
-
-`dsh plugin add` 会把包 pnpm-link 进 profile 并追加到 `dsh.profile.bundles`。**重启 `dsh web` 生效**（client 插件元数据按名缓存，重启后重新扫描）。
-
-### 桌面端（DSH Desktop）安装
-
-桌面端是 [deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 项目（包名 `dsh-plugin-desktop`）。它与 `dsh web` 使用**互相独立的 profile**（桌面端用 `desktop`，`dsh web` 用 `web`），插件**不会自动共享**——只装进 `web` profile 的插件在桌面端不会出现，设置 → 插件列表里也不会显示：
-
-```sh
-# 同样在 dsh-file 的父目录执行
-cd /path/to/dsh-plugin
-dsh plugin --profile desktop add ./dsh-file
-```
-
-安装后**完全退出并重启桌面端**（退出应用，不是关窗口），`dsh-file` 才会出现在侧边栏底部"文件"按钮和设置 → 插件列表中。
-
-> 注意：不要往 `~/.dsh/profiles/desktop/cordis.yml` 里添加插件——桌面端每次启动都会把它重写为空列表 `[]`。插件的正确入口是 profile `package.json` 的 `dsh.profile.bundles` + `dependencies`（`dsh plugin add` 做的正是这件事）。
-
-### 发布安装
-
-```sh
-npm publish                      # 发布到 registry（files 已含 dist/ + cordis.patch.yml）
-dsh plugin --profile web add dsh-file
-# 或本地 tarball
-pnpm pack && dsh plugin --profile web add ./dsh-file-0.1.0.tgz
-```
-
-### 配置
-
-`cordis.patch.yml` 中的 `root` 只是**无会话时的兜底根目录**（默认 `process.cwd()`）。文件管理器打开时，浏览器会解析当前对话的工作区目录并通过 `setRoot` 重新固定根目录，因此一般无需改动：
-
-```yaml
-- insert:
-    - id: dsh-file
-      name: 'dsh-file'
-      config:
-        root: !!js process.cwd()   # 仅作为打开文件管理器前的兜底根目录
-```
 
 ## 调试
 

@@ -30,6 +30,53 @@
 >
 > DeepSeek Harness 的 VS Code 风格文件管理器插件：在 Web 侧边栏浏览当前对话工作区的文件，在中间主区域编辑。
 
+## Installation
+
+<a id="installation"></a>
+
+```sh
+# Run from inside the cloned dsh-file directory (not its parent)
+cd /path/to/dsh-file
+dsh plugin --profile web add .
+```
+
+`dsh plugin add` pnpm-links the package into the profile and appends it to `dsh.profile.bundles`. **Restart `dsh web` to take effect** (client plugin metadata is cached by name; it is rescanned after a restart).
+
+### DSH Desktop install
+
+The desktop client is the [deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) project (package `dsh-plugin-desktop`). It uses a **separate profile** (`desktop`) from `dsh web` (`web`), and plugins are **not shared** between them — a plugin installed only into the `web` profile will not appear in the desktop client, nor in its Settings → Plugins list:
+
+```sh
+# Run from inside the dsh-file directory as well
+cd /path/to/dsh-file
+dsh plugin --profile desktop add .
+```
+
+After installing, **fully quit and relaunch the desktop app** (quit the application, not just close the window); `dsh-file` will then show up in the sidebar footer "Files" button and in Settings → Plugins.
+
+> Note: do not add plugins to `~/.dsh/profiles/desktop/cordis.yml` — the desktop client rewrites it to an empty list `[]` on every startup. The correct entry point is `dsh.profile.bundles` + `dependencies` in the profile's `package.json` (which is exactly what `dsh plugin add` does).
+
+### Published install
+
+```sh
+npm publish                      # publish to the registry (files already include dist/ + cordis.patch.yml)
+dsh plugin --profile web add dsh-file
+# or a local tarball
+pnpm pack && dsh plugin --profile web add ./dsh-file-0.1.0.tgz
+```
+
+### Configuration
+
+The `root` in `cordis.patch.yml` is only the **fallback root when there is no session** (defaults to `process.cwd()`). When the file manager opens, the browser resolves the current conversation's workspace directory and re-pins the root via `setRoot`, so usually nothing needs to change:
+
+```yaml
+- insert:
+    - id: dsh-file
+      name: 'dsh-file'
+      config:
+        root: !!js process.cwd()   # fallback root only, before the file manager pins the session workspace
+```
+
 ## Features
 
 - **"Files" button at the sidebar footer**: toggles the sidebar body into the file manager (file tree) and back to the workspace/session list
@@ -132,53 +179,6 @@ node build.mjs --watch            # watch client only (rerun for host changes)
 Build outputs:
 - `dist/index.js` — host half (Node ESM; compiled with tsc to keep the standard stage-3 decorators; esbuild would lower `@Remote` to the legacy form and crash at runtime)
 - `dist/client.js` — client half (`window.__ModuleLoader__.load({id, factory})` format; `react` and other seed words stay external)
-
-## Installation
-
-<a id="installation"></a>
-
-```sh
-# Run from dsh-file's parent directory so ./dsh-file is not resolved as a subdirectory
-cd /path/to/dsh-plugin
-dsh plugin --profile web add ./dsh-file
-```
-
-`dsh plugin add` pnpm-links the package into the profile and appends it to `dsh.profile.bundles`. **Restart `dsh web` to take effect** (client plugin metadata is cached by name; it is rescanned after a restart).
-
-### DSH Desktop install
-
-The desktop client is the [deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) project (package `dsh-plugin-desktop`). It uses a **separate profile** (`desktop`) from `dsh web` (`web`), and plugins are **not shared** between them — a plugin installed only into the `web` profile will not appear in the desktop client, nor in its Settings → Plugins list:
-
-```sh
-# Run from dsh-file's parent directory as well
-cd /path/to/dsh-plugin
-dsh plugin --profile desktop add ./dsh-file
-```
-
-After installing, **fully quit and relaunch the desktop app** (quit the application, not just close the window); `dsh-file` will then show up in the sidebar footer "Files" button and in Settings → Plugins.
-
-> Note: do not add plugins to `~/.dsh/profiles/desktop/cordis.yml` — the desktop client rewrites it to an empty list `[]` on every startup. The correct entry point is `dsh.profile.bundles` + `dependencies` in the profile's `package.json` (which is exactly what `dsh plugin add` does).
-
-### Published install
-
-```sh
-npm publish                      # publish to the registry (files already include dist/ + cordis.patch.yml)
-dsh plugin --profile web add dsh-file
-# or a local tarball
-pnpm pack && dsh plugin --profile web add ./dsh-file-0.1.0.tgz
-```
-
-### Configuration
-
-The `root` in `cordis.patch.yml` is only the **fallback root when there is no session** (defaults to `process.cwd()`). When the file manager opens, the browser resolves the current conversation's workspace directory and re-pins the root via `setRoot`, so usually nothing needs to change:
-
-```yaml
-- insert:
-    - id: dsh-file
-      name: 'dsh-file'
-      config:
-        root: !!js process.cwd()   # fallback root only, before the file manager pins the session workspace
-```
 
 ## Debugging
 
