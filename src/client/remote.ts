@@ -49,6 +49,7 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
   descriptors: [
     direct('listDir', ['path']),
     direct('readText', ['path']),
+    direct('readDataUrl', ['path']),
     direct('writeText', ['path', 'content']),
     direct('createFile', ['path']),
     direct('createDirectory', ['path']),
@@ -82,6 +83,12 @@ export interface ReadTextValue {
   size: number;
 }
 
+export interface ReadDataUrlValue {
+  path: string;
+  mime: string;
+  dataUrl: string;
+}
+
 // ── typed remote face ──────────────────────────────────────────────────────
 
 /**
@@ -94,6 +101,7 @@ export interface ReadTextValue {
 export interface FileManagerRemote {
   listDir(path: string): Promise<RemoteResult<ListDirValue>>;
   readText(path: string): Promise<RemoteResult<ReadTextValue>>;
+  readDataUrl(path: string): Promise<RemoteResult<ReadDataUrlValue>>;
   writeText(path: string, content: string): Promise<RemoteResult<{ path: string; operation: 'create' | 'update' }>>;
   createFile(path: string): Promise<RemoteResult<{ path: string; operation: 'create' }>>;
   createDirectory(path: string): Promise<RemoteResult<{ path: string }>>;

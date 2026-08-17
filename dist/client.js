@@ -57,6 +57,7 @@ var TYPERT_REMOTE = {
   descriptors: [
     direct("listDir", ["path"]),
     direct("readText", ["path"]),
+    direct("readDataUrl", ["path"]),
     direct("writeText", ["path", "content"]),
     direct("createFile", ["path"]),
     direct("createDirectory", ["path"]),
@@ -2096,7 +2097,7 @@ function FileEditorView({ remote, t }) {
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: cx3("dshf-status-notice", notice === null && "dshf-hidden"), children: notice ?? "" })
       ] })
     ] }),
-    isMarkdownPath(active.path) && mdMode === "preview" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(MarkdownPreview, { content: active.content }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+    isMarkdownPath(active.path) && mdMode === "preview" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(MarkdownPreview, { content: active.content, path: active.path, remote }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
       EditorPane,
       {
         path: active.path,
@@ -2324,9 +2325,50 @@ function EditorPane({ path, content, onChange, theme }) {
     }
   );
 }
-function MarkdownPreview({ content }) {
+function MarkdownPreview({ content, path, remote }) {
   const html = (0, import_react6.useMemo)(() => renderMarkdown(content), [content]);
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "dshf-md-preview", dangerouslySetInnerHTML: { __html: html } });
+  const rootRef = (0, import_react6.useRef)(null);
+  const remoteRef = (0, import_react6.useRef)(remote);
+  remoteRef.current = remote;
+  (0, import_react6.useEffect)(() => {
+    const root = rootRef.current;
+    if (root === null) return;
+    const dir = path.slice(0, path.lastIndexOf("/") + 1);
+    const imgs = root.querySelectorAll("img[src]");
+    let cancelled = false;
+    for (const img of imgs) {
+      const src = img.getAttribute("src") ?? "";
+      if (/^(?:https?:|data:|blob:)/i.test(src)) continue;
+      if (src.startsWith("#")) continue;
+      const target = src.startsWith("/") ? src.slice(1) : `${dir}${src}`;
+      void unwrap(remoteRef.current.readDataUrl(target)).then(({ dataUrl }) => {
+        if (cancelled) return;
+        img.setAttribute("src", dataUrl);
+      }).catch(() => {
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [html, path]);
+  const onPreviewClick = (0, import_react6.useCallback)((e) => {
+    const anchor = e.target.closest("a");
+    if (anchor === null) return;
+    const href = anchor.getAttribute("href") ?? "";
+    e.preventDefault();
+    if (/^https?:\/\//i.test(href)) {
+      window.open(href, "_blank", "noopener,noreferrer");
+    }
+  }, []);
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+    "div",
+    {
+      ref: rootRef,
+      className: "dshf-md-preview",
+      onClick: onPreviewClick,
+      dangerouslySetInnerHTML: { __html: html }
+    }
+  );
 }
 function MdModeIcon({ mode }) {
   if (mode === "preview") {

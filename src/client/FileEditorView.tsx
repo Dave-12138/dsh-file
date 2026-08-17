@@ -179,7 +179,7 @@ export function FileEditorView({ remote, t }: { remote: FileManagerRemote; t?: (
         </span>
       </div>
       {isMarkdownPath(active.path) && mdMode === 'preview' ? (
-        <MarkdownPreview content={active.content} />
+        <MarkdownPreview content={active.content} path={active.path} remote={remote} />
       ) : (
         <EditorPane
           key={active.path}
@@ -434,10 +434,75 @@ function EditorPane({ path, content, onChange, theme }: {
   );
 }
 
-/** Rendered Markdown preview (read-only). Falls back to raw <pre> on render failure. */
-function MarkdownPreview({ content }: { content: string }): JSX.Element {
+/**
+ * Rendered Markdown preview (read-only). Falls back to raw <pre> on render
+ * failure.
+ *
+ * Two URL concerns are handled here:
+ *  1. Relative image srcs (`![alt](docs/x.png)`) resolve against the OPEN
+ *     FILE's directory (the workspace), not the page URL — the web server
+ *     cannot serve them, so each is fetched through the host `readDataUrl`
+ *     RPC and replaced with an inline data URL.
+ *  2. Anchor clicks are intercepted: http(s) links open in a new tab, while
+ *     relative / hash links never navigate — navigation would drop the
+ *     desktop shell's `dsh-desktop-mode` query marker and crash the page.
+ */
+function MarkdownPreview({ content, path, remote }: {
+  content: string;
+  path: string;
+  remote: FileManagerRemote;
+}): JSX.Element {
   const html = useMemo(() => renderMarkdown(content), [content]);
-  return <div className="dshf-md-preview" dangerouslySetInnerHTML={{ __html: html }} />;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const remoteRef = useRef(remote);
+  remoteRef.current = remote;
+
+  // Resolve workspace-relative images into data URLs after each render.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (root === null) return;
+    const dir = path.slice(0, path.lastIndexOf('/') + 1); // trailing slash
+    const imgs = root.querySelectorAll<HTMLImageElement>('img[src]');
+    let cancelled = false;
+    for (const img of imgs) {
+      const src = img.getAttribute('src') ?? '';
+      if (/^(?:https?:|data:|blob:)/i.test(src)) continue; // absolute / already inlined
+      if (src.startsWith('#')) continue; // hash-only src: no file to read
+      const target = src.startsWith('/') ? src.slice(1) : `${dir}${src}`;
+      void unwrap(remoteRef.current.readDataUrl(target))
+        .then(({ dataUrl }) => {
+          if (cancelled) return;
+          img.setAttribute('src', dataUrl);
+        })
+        .catch(() => {
+          // Keep the broken relative src (shows the alt text / broken image).
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [html, path]);
+
+  // Intercept link clicks: never navigate the host page.
+  const onPreviewClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const anchor = (e.target as HTMLElement).closest('a');
+    if (anchor === null) return;
+    const href = anchor.getAttribute('href') ?? '';
+    e.preventDefault();
+    if (/^https?:\/\//i.test(href)) {
+      window.open(href, '_blank', 'noopener,noreferrer');
+    }
+    // Relative / hash links: intentionally do nothing (no navigation).
+  }, []);
+
+  return (
+    <div
+      ref={rootRef}
+      className="dshf-md-preview"
+      onClick={onPreviewClick}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
 }
 
 /** VS Code style icon for the render/source toggle. */

@@ -21,6 +21,7 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import type { Context } from '@deepseek-ai/cordis';
 import * as fs from 'node:fs/promises';
 import * as nodePath from 'node:path';
+import { mimeOf } from './mime.js';
 
 /** One directory entry in a listing. */
 export interface FileEntry {
@@ -108,6 +109,24 @@ export class FileManagerGateway extends TypertRemoteService {
       || name.endsWith('.mp4') || name.endsWith('.mov') || name.endsWith('.woff') || name.endsWith('.woff2')
       || name.endsWith('.ttf') || name.endsWith('.eot') || name.endsWith('.otf')) return false;
     return true;
+  }
+
+  /**
+   * Read a file as a data URL (any type, binary included). The Markdown
+   * preview uses this to display workspace-relative images that the web
+   * server itself cannot serve.
+   * @param path - target file path.
+   */
+  @Remote('readDataUrl')
+  async readDataUrl(path: string): Promise<{ path: string; mime: string; dataUrl: string }> {
+    const target = await resolveInside(this.root, path);
+    const st = await fs.stat(target);
+    if (!st.isFile()) throw new Error(`not a regular file: ${target}`);
+    const MAX_BYTES = 5 * 1024 * 1024;
+    if (st.size > MAX_BYTES) throw new Error(`file too large to inline as data URL (${st.size} bytes > ${MAX_BYTES})`);
+    const buf = await fs.readFile(target);
+    const mime = mimeOf(target);
+    return { path: target, mime, dataUrl: `data:${mime};base64,${buf.toString('base64')}` };
   }
 
   /**

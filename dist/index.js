@@ -54,6 +54,7 @@ var __esDecorate = (this && this.__esDecorate) || function (ctor, descriptorIn, 
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import * as fs from 'node:fs/promises';
 import * as nodePath from 'node:path';
+import { mimeOf } from './mime.js';
 /**
  * Resolve an untrusted client path against the workspace root.
  *
@@ -90,6 +91,7 @@ let FileManagerGateway = (() => {
     var _a;
     let _classSuper = TypertRemoteService;
     let _instanceExtraInitializers = [];
+    let _readDataUrl_decorators;
     let _listDir_decorators;
     let _readText_decorators;
     let _writeText_decorators;
@@ -119,6 +121,24 @@ let FileManagerGateway = (() => {
                     || name.endsWith('.ttf') || name.endsWith('.eot') || name.endsWith('.otf'))
                     return false;
                 return true;
+            }
+            /**
+             * Read a file as a data URL (any type, binary included). The Markdown
+             * preview uses this to display workspace-relative images that the web
+             * server itself cannot serve.
+             * @param path - target file path.
+             */
+            async readDataUrl(path) {
+                const target = await resolveInside(this.root, path);
+                const st = await fs.stat(target);
+                if (!st.isFile())
+                    throw new Error(`not a regular file: ${target}`);
+                const MAX_BYTES = 5 * 1024 * 1024;
+                if (st.size > MAX_BYTES)
+                    throw new Error(`file too large to inline as data URL (${st.size} bytes > ${MAX_BYTES})`);
+                const buf = await fs.readFile(target);
+                const mime = mimeOf(target);
+                return { path: target, mime, dataUrl: `data:${mime};base64,${buf.toString('base64')}` };
             }
             /**
              * List one directory level.
@@ -276,6 +296,7 @@ let FileManagerGateway = (() => {
         },
         (() => {
             const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            _readDataUrl_decorators = [Remote('readDataUrl')];
             _listDir_decorators = [Remote('listDir')];
             _readText_decorators = [Remote('readText')];
             _writeText_decorators = [Remote('writeText')];
@@ -287,6 +308,7 @@ let FileManagerGateway = (() => {
             _resolve_decorators = [Remote('resolve')];
             _getRoot_decorators = [Remote('getRoot')];
             _setRoot_decorators = [Remote('setRoot')];
+            __esDecorate(_a, null, _readDataUrl_decorators, { kind: "method", name: "readDataUrl", static: false, private: false, access: { has: obj => "readDataUrl" in obj, get: obj => obj.readDataUrl }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(_a, null, _listDir_decorators, { kind: "method", name: "listDir", static: false, private: false, access: { has: obj => "listDir" in obj, get: obj => obj.listDir }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(_a, null, _readText_decorators, { kind: "method", name: "readText", static: false, private: false, access: { has: obj => "readText" in obj, get: obj => obj.readText }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(_a, null, _writeText_decorators, { kind: "method", name: "writeText", static: false, private: false, access: { has: obj => "writeText" in obj, get: obj => obj.writeText }, metadata: _metadata }, null, _instanceExtraInitializers);

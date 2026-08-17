@@ -73,6 +73,17 @@ export declare class FileManagerGateway extends TypertRemoteService {
     /** Whether a file-like name should be treated as text (heuristic). */
     private static isTextName;
     /**
+     * Read a file as a data URL (any type, binary included). The Markdown
+     * preview uses this to display workspace-relative images that the web
+     * server itself cannot serve.
+     * @param path - target file path.
+     */
+    readDataUrl(path: string): Promise<{
+        path: string;
+        mime: string;
+        dataUrl: string;
+    }>;
+    /**
      * List one directory level.
      * @param path - target directory path (absolute inside root, or relative to root).
      */
