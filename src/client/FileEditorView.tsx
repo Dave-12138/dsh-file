@@ -10,12 +10,14 @@
  * (uncontrolled, keyed by path); falls back to a plain textarea when the CDN
  * is unreachable.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import type { FileManagerRemote } from './remote.ts';
 import { unwrap } from './remote.ts';
 import { ensureMonaco } from './monaco.ts';
 import { useActivePath, useTabs, focusTab, closeTab, updateActiveContent, markSaved, closeEditor, setEditorViewActive, type OpenTab } from './store.ts';
+import { isMarkdownPath, renderMarkdown } from './markdown.ts';
+import { useMdMode, setMdMode, type MdViewMode } from './mdModeStore.ts';
 import {
   useEditorTheme,
   themeChrome,
@@ -48,6 +50,7 @@ export function FileEditorView({ remote, t }: { remote: FileManagerRemote; t?: (
   const [notice, setNotice] = useState<string | null>(null);
   const theme = useEditorTheme();
   const chrome = themeChrome(theme);
+  const mdMode = useMdMode();
 
   // While the "文件" view is the active conversation view, request the
   // sidebar tree panel to open; switching to another view closes it again.
@@ -119,6 +122,16 @@ export function FileEditorView({ remote, t }: { remote: FileManagerRemote; t?: (
         </span>
         <span className="dshf-spacer" />
         <span className="dshf-editor-path" title={active.path}>{active.path}</span>
+        {isMarkdownPath(active.path) && (
+          <button
+            type="button"
+            className="dshf-btn dshf-md-toggle"
+            title={mdMode === 'preview' ? '编辑源码' : '预览渲染效果'}
+            onClick={() => setMdMode(mdMode === 'preview' ? 'source' : 'preview')}
+          >
+            <MdModeIcon mode={mdMode} />
+          </button>
+        )}
         <ThemeButton />
         <button
           type="button"
@@ -165,13 +178,17 @@ export function FileEditorView({ remote, t }: { remote: FileManagerRemote; t?: (
           <span className={cx('dshf-status-notice', notice === null && 'dshf-hidden')}>{notice ?? ''}</span>
         </span>
       </div>
-      <EditorPane
-        key={active.path}
-        path={active.path}
-        content={active.content}
-        onChange={updateActiveContent}
-        theme={theme}
-      />
+      {isMarkdownPath(active.path) && mdMode === 'preview' ? (
+        <MarkdownPreview content={active.content} />
+      ) : (
+        <EditorPane
+          key={active.path}
+          path={active.path}
+          content={active.content}
+          onChange={updateActiveContent}
+          theme={theme}
+        />
+      )}
     </div>
   );
 }
@@ -414,6 +431,30 @@ function EditorPane({ path, content, onChange, theme }: {
       onChange={(e) => onChange(e.target.value)}
       spellCheck={false}
     />
+  );
+}
+
+/** Rendered Markdown preview (read-only). Falls back to raw <pre> on render failure. */
+function MarkdownPreview({ content }: { content: string }): JSX.Element {
+  const html = useMemo(() => renderMarkdown(content), [content]);
+  return <div className="dshf-md-preview" dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+/** VS Code style icon for the render/source toggle. */
+function MdModeIcon({ mode }: { mode: MdViewMode }): JSX.Element {
+  if (mode === 'preview') {
+    // "open-preview" style: split box + arrow (current mode preview → action switches to source)
+    return (
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M4 2h8v1H4zM2 4h12v1H2zM4 6h8v1H4zM2 8h12v1H2zM4 10h4v1H4z" fill="currentColor" />
+      </svg>
+    );
+  }
+  // source / edit style icon (current mode source → action switches to preview)
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M11.3 1.3l3.4 3.4-7.9 7.9L3 13l.4-3.8 7.9-7.9z" fill="currentColor" />
+    </svg>
   );
 }
 
