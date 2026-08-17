@@ -115,6 +115,12 @@ ln -s ~/.dsh/profiles/node_modules/@deepseek-ai node_modules/@deepseek-ai
 
 `dsh` 启动时会维护 `$DSH_HOME/profiles/node_modules` 的扁平 symlink 回退（`healProfilesModuleFallback`），指向 dsh 安装目录的每个包。生产发布时插件将 `@deepseek-ai/*` 声明为 `peerDependencies`，由 profile 提供。
 
+**桌面端（deepseek-harness-desktop）注意**：
+
+- 桌面端启动时会把 `~/.dsh/profiles/node_modules/@deepseek-ai` 重指向 **Desktop.app 打包目录**（`/Applications/DSH Desktop.app/.../app.asar.unpacked/node_modules`），该目录**裁剪了 `.d.ts`**——保持上面的 symlink 指向 `profiles` 即可保证运行时与桌面端 api-gateway 同一实例（RPC 正常）。
+- 但 tsc 构建会因缺类型失败。`tsconfig.json` 用 `paths` 把 `@deepseek-ai/*` 的**编译期类型查找**映射到全局 dsh 安装（有完整 `.d.ts`）；运行时 Node 解析不受影响（仍走 node_modules symlink → profiles → 桌面端实例）。若全局 dsh 路径不同，按 `tsconfig.json` 注释调整。
+- **不要在插件目录里跑 `npm install`**：npm 会把 `node_modules/@deepseek-ai` symlink 解引用成真实目录并破坏 profiles 的 symlink 结构，导致 `dsh` 启动报 "exists and is not a symlink"。需要装新依赖时，装完重新执行上面的 `ln -s`。
+
 ## 开发
 
 ```sh

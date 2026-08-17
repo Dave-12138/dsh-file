@@ -115,6 +115,12 @@ ln -s ~/.dsh/profiles/node_modules/@deepseek-ai node_modules/@deepseek-ai
 
 At startup `dsh` maintains a flat symlink fallback at `$DSH_HOME/profiles/node_modules` (`healProfilesModuleFallback`) pointing at every package in the dsh installation. For production releases the plugin declares `@deepseek-ai/*` as `peerDependencies`, provided by the profile.
 
+**Desktop app (deepseek-harness-desktop) notes**:
+
+- On startup the desktop app re-points `~/.dsh/profiles/node_modules/@deepseek-ai` at the **packaged Desktop.app directory** (`/Applications/DSH Desktop.app/.../app.asar.unpacked/node_modules`), which **strips `.d.ts` files** — keeping the symlink above pointing at `profiles` guarantees the plugin loads the same runtime instance as the desktop api-gateway (RPC works).
+- The stripped types break `tsc`. `tsconfig.json` uses `paths` to map the **compile-time** lookup of `@deepseek-ai/*` to the global dsh install (which ships full `.d.ts`); runtime resolution is unaffected (Node still walks the node_modules symlink → profiles → desktop instance). Adjust the path per the comment in `tsconfig.json` if your global dsh lives elsewhere.
+- **Do not run `npm install` inside the plugin directory**: npm dereferences the `node_modules/@deepseek-ai` symlink into a real directory and corrupts the profiles symlink structure, making `dsh` fail with "exists and is not a symlink". If you must add dependencies, re-run the `ln -s` above afterwards.
+
 ## Development
 
 ```sh

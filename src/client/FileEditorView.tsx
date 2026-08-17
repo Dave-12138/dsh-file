@@ -469,7 +469,8 @@ function MarkdownPreview({ content, path, remote }: {
       if (/^(?:https?:|data:|blob:)/i.test(src)) continue; // absolute / already inlined
       if (src.startsWith('#')) continue; // hash-only src: no file to read
       const target = src.startsWith('/') ? src.slice(1) : `${dir}${src}`;
-      void unwrap(remoteRef.current.readDataUrl(target))
+      void remoteRef.current.readDataUrl(target)
+        .then((result) => unwrap(result))
         .then(({ dataUrl }) => {
           if (cancelled) return;
           img.setAttribute('src', dataUrl);

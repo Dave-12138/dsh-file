@@ -2341,7 +2341,7 @@ function MarkdownPreview({ content, path, remote }) {
       if (/^(?:https?:|data:|blob:)/i.test(src)) continue;
       if (src.startsWith("#")) continue;
       const target = src.startsWith("/") ? src.slice(1) : `${dir}${src}`;
-      void unwrap(remoteRef.current.readDataUrl(target)).then(({ dataUrl }) => {
+      void remoteRef.current.readDataUrl(target).then((result) => unwrap(result)).then(({ dataUrl }) => {
         if (cancelled) return;
         img.setAttribute("src", dataUrl);
       }).catch(() => {
