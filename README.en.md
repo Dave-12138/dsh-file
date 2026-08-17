@@ -138,6 +138,20 @@ dsh plugin --profile web add ./dsh-file
 
 `dsh plugin add` pnpm-links the package into the profile and appends it to `dsh.profile.bundles`. **Restart `dsh web` to take effect** (client plugin metadata is cached by name; it is rescanned after a restart).
 
+### DSH Desktop install
+
+The desktop client is the [deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) project (package `dsh-plugin-desktop`). It uses a **separate profile** (`desktop`) from `dsh web` (`web`), and plugins are **not shared** between them — a plugin installed only into the `web` profile will not appear in the desktop client, nor in its Settings → Plugins list:
+
+```sh
+# Run from dsh-file's parent directory as well
+cd /path/to/dsh-plugin
+dsh plugin --profile desktop add ./dsh-file
+```
+
+After installing, **fully quit and relaunch the desktop app** (quit the application, not just close the window); `dsh-file` will then show up in the sidebar footer "Files" button and in Settings → Plugins.
+
+> Note: do not add plugins to `~/.dsh/profiles/desktop/cordis.yml` — the desktop client rewrites it to an empty list `[]` on every startup. The correct entry point is `dsh.profile.bundles` + `dependencies` in the profile's `package.json` (which is exactly what `dsh plugin add` does).
+
 ### Published install
 
 ```sh

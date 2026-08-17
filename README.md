@@ -136,6 +136,20 @@ dsh plugin --profile web add ./dsh-file
 
 `dsh plugin add` 会把包 pnpm-link 进 profile 并追加到 `dsh.profile.bundles`。**重启 `dsh web` 生效**（client 插件元数据按名缓存，重启后重新扫描）。
 
+### 桌面端（DSH Desktop）安装
+
+桌面端是 [deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 项目（包名 `dsh-plugin-desktop`）。它与 `dsh web` 使用**互相独立的 profile**（桌面端用 `desktop`，`dsh web` 用 `web`），插件**不会自动共享**——只装进 `web` profile 的插件在桌面端不会出现，设置 → 插件列表里也不会显示：
+
+```sh
+# 同样在 dsh-file 的父目录执行
+cd /path/to/dsh-plugin
+dsh plugin --profile desktop add ./dsh-file
+```
+
+安装后**完全退出并重启桌面端**（退出应用，不是关窗口），`dsh-file` 才会出现在侧边栏底部"文件"按钮和设置 → 插件列表中。
+
+> 注意：不要往 `~/.dsh/profiles/desktop/cordis.yml` 里添加插件——桌面端每次启动都会把它重写为空列表 `[]`。插件的正确入口是 profile `package.json` 的 `dsh.profile.bundles` + `dependencies`（`dsh plugin add` 做的正是这件事）。
+
 ### 发布安装
 
 ```sh
