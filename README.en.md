@@ -64,13 +64,16 @@ After installing, **fully quit and relaunch the desktop app** (quit the applicat
 
 > Note: do not add plugins to `~/.dsh/profiles/desktop/cordis.yml` — the desktop client rewrites it to an empty list `[]` on every startup. The correct entry point is `dsh.profile.bundles` + `dependencies` in the profile's `package.json` (which is exactly what `dsh plugin add` does).
 
-### Published install
+### Install from npm
 
 ```sh
-npm publish                      # publish to the registry (files already include dist/ + cordis.patch.yml)
 dsh plugin --profile web add dsh-file
-# or a local tarball
-pnpm pack && dsh plugin --profile web add ./dsh-file-0.1.1.tgz
+```
+
+Or download the tarball from [Releases](https://github.com/chengzhi43/dsh-file/releases) and install it locally (use `--profile desktop` for the desktop app):
+
+```sh
+dsh plugin --profile web add ./dsh-file-0.1.1.tgz
 ```
 
 ### Configuration

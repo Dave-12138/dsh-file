@@ -62,13 +62,16 @@ dsh plugin --profile desktop add .
 
 > 注意：不要往 `~/.dsh/profiles/desktop/cordis.yml` 里添加插件——桌面端每次启动都会把它重写为空列表 `[]`。插件的正确入口是 profile `package.json` 的 `dsh.profile.bundles` + `dependencies`（`dsh plugin add` 做的正是这件事）。
 
-### 发布安装
+### 从 npm 安装
 
 ```sh
-npm publish                      # 发布到 registry（files 已含 dist/ + cordis.patch.yml）
 dsh plugin --profile web add dsh-file
-# 或本地 tarball
-pnpm pack && dsh plugin --profile web add ./dsh-file-0.1.1.tgz
+```
+
+或从 [Releases](https://github.com/chengzhi43/dsh-file/releases) 页面下载 tarball 后本地安装（桌面端把 `--profile web` 换成 `--profile desktop`）：
+
+```sh
+dsh plugin --profile web add ./dsh-file-0.1.1.tgz
 ```
 
 ### 配置

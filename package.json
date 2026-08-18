@@ -22,7 +22,8 @@
   "scripts": {
     "build": "node build.mjs",
     "dev": "node build.mjs --watch",
-    "test": "node --test \"test/*.test.ts\""
+    "test": "node --test \"test/*.test.ts\"",
+    "prepublishOnly": "node build.mjs && npm test"
   },
   "dsh": {
     "bundle": {
