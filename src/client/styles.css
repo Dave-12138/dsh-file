@@ -52,6 +52,65 @@
   cursor: default;
 }
 
+/* 纯图标按钮（工具条）：DSH 风格的无边框 ghost 图标按钮 */
+.dshf-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-color: transparent;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+/* 页面内确认弹层（替代 window.confirm，桌面端 Electron 不支持原生弹框） */
+.dshf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dshf-modal {
+  min-width: 260px;
+  max-width: 360px;
+  background: var(--dsw-alias-bg-primary, #ffffff);
+  color: var(--dsw-alias-label-primary, #1f2328);
+  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.15));
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  padding: 14px 16px;
+}
+.dshf-modal-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dshf-modal-body {
+  font-size: 13px;
+  color: var(--dsw-alias-label-secondary, #495057);
+  margin-bottom: 14px;
+  word-break: break-all;
+}
+.dshf-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.dshf-btn-danger {
+  background: var(--dsw-alias-danger-fg, #c92a2a);
+  border-color: transparent;
+  color: #ffffff;
+}
+.dshf-btn-danger:hover {
+  background: var(--dsw-alias-danger-fg, #c92a2a);
+  filter: brightness(1.1);
+}
+
 .dshf-error {
   padding: 8px 12px;
   color: var(--dsw-alias-danger-fg, #c92a2a);
@@ -115,6 +174,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+
+/* VS Code 式内联输入行（新建/重命名）：accent 边框的输入框 */
+.dshf-node-editing {
+  cursor: default;
+}
+.dshf-inline-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: inherit;
+  background: var(--dsw-alias-bg-primary, #ffffff);
+  border: 1px solid var(--dsw-alias-accent-strong, #4dabf7);
+  border-radius: 4px;
+  padding: 1px 4px;
+  outline: none;
 }
 
 .dshf-node-actions {

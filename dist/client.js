@@ -86,11 +86,20 @@ var import_jsx_runtime = require("react/jsx-runtime");
 function cx(...parts) {
   return parts.filter(Boolean).join(" ");
 }
-var FileTree = (0, import_react.forwardRef)(function FileTree2({ remote, root, onOpenFile, onRename, onDelete }, ref) {
+var FileTree = (0, import_react.forwardRef)(function FileTree2({ remote, root, onOpenFile, onDelete, onRenamed, onNotice }, ref) {
   const [expanded, setExpanded] = (0, import_react.useState)({ [root]: { path: root, entries: null } });
   const [selected, setSelected] = (0, import_react.useState)(null);
+  const [editing, setEditing] = (0, import_react.useState)(null);
   const [rev, setRev] = (0, import_react.useState)(0);
-  const loaded = (0, import_react.useRef)({});
+  const dirPaths = (0, import_react.useRef)(/* @__PURE__ */ new Set());
+  const parentOf = (0, import_react.useCallback)(
+    (p) => {
+      const i = p.lastIndexOf("/");
+      if (i <= 0) return root;
+      return p.slice(0, i) || root;
+    },
+    [root]
+  );
   const loadDir = (0, import_react.useCallback)(
     async (path) => {
       setExpanded((prev) => ({ ...prev, [path]: { ...prev[path] ?? { path }, entries: null, error: void 0 } }));
@@ -104,102 +113,216 @@ var FileTree = (0, import_react.forwardRef)(function FileTree2({ remote, root, o
     [remote]
   );
   (0, import_react.useEffect)(() => {
+    setEditing(null);
     void loadDir(root);
   }, [root, rev, loadDir]);
+  const cwdTarget = (0, import_react.useCallback)(() => {
+    if (selected === null) return root;
+    if (dirPaths.current.has(selected)) return selected;
+    return parentOf(selected);
+  }, [selected, root, parentOf]);
+  const beginCreate = (0, import_react.useCallback)(
+    (kind) => {
+      const parent = cwdTarget();
+      if (parent !== root && expanded[parent] === void 0) void loadDir(parent);
+      setSelected(parent);
+      setEditing({ mode: "create", parent, kind });
+    },
+    [cwdTarget, expanded, loadDir, root]
+  );
   (0, import_react.useImperativeHandle)(ref, () => ({
-    selected: () => selected,
     refresh: () => setRev((v2) => v2 + 1),
-    cwd: () => {
-      if (selected === null) return root;
-      const last = selected.split("/").filter(Boolean).pop() ?? "";
-      if (expanded[selected] !== void 0) return selected;
-      return selected.slice(0, selected.length - last.length - 1) || root;
-    }
-  }), [selected, root, expanded]);
+    beginCreate
+  }), [beginCreate]);
+  const cancelEdit = (0, import_react.useCallback)(() => setEditing(null), []);
+  const submitCreate = (0, import_react.useCallback)(
+    async (name) => {
+      if (editing?.mode !== "create") return true;
+      const trimmed = name.trim();
+      if (trimmed === "") return true;
+      if (trimmed.includes("/")) {
+        onNotice("\u540D\u79F0\u4E0D\u80FD\u5305\u542B /");
+        return false;
+      }
+      const target = `${editing.parent.replace(/\/$/, "")}/${trimmed}`;
+      try {
+        if (editing.kind === "directory") await unwrap(await remote.createDirectory(target));
+        else await unwrap(await remote.createFile(target));
+      } catch (error) {
+        onNotice(`\u521B\u5EFA\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+        return false;
+      }
+      await loadDir(editing.parent);
+      setEditing(null);
+      setSelected(target);
+      onNotice(editing.kind === "directory" ? `\u5DF2\u521B\u5EFA\u76EE\u5F55 ${trimmed}` : `\u5DF2\u521B\u5EFA\u6587\u4EF6 ${trimmed}`);
+      if (editing.kind === "file") onOpenFile(target);
+      return true;
+    },
+    [editing, remote, loadDir, onNotice, onOpenFile]
+  );
+  const submitRename = (0, import_react.useCallback)(
+    async (name) => {
+      if (editing?.mode !== "rename") return true;
+      const from = editing.path;
+      const trimmed = name.trim();
+      const oldName = from.split("/").pop() ?? "";
+      if (trimmed === "" || trimmed === oldName) return true;
+      if (trimmed.includes("/")) {
+        onNotice("\u540D\u79F0\u4E0D\u80FD\u5305\u542B /");
+        return false;
+      }
+      const to = `${parentOf(from).replace(/\/$/, "")}/${trimmed}`;
+      try {
+        await unwrap(await remote.rename(from, to));
+      } catch (error) {
+        onNotice(`\u91CD\u547D\u540D\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+        return false;
+      }
+      await loadDir(parentOf(from));
+      setEditing(null);
+      setSelected(to);
+      onRenamed(from, to);
+      onNotice(`\u5DF2\u91CD\u547D\u540D ${trimmed}`);
+      return true;
+    },
+    [editing, remote, loadDir, parentOf, onRenamed, onNotice]
+  );
   const node = expanded[root];
   const renderLevel = (0, import_react.useCallback)(
     (path, entries, depth) => {
-      return entries.map((entry) => {
-        const full = `${path.replace(/\/$/, "")}/${entry.name}`;
-        const isDir = entry.type === "directory";
-        const isOpen = expanded[full] !== void 0;
-        return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-            "div",
-            {
-              className: cx("dshf-node", selected === full && "dshf-selected"),
-              style: { paddingLeft: `${8 + depth * 14}px` },
-              onClick: () => {
-                setSelected(full);
-                if (isDir) {
-                  if (isOpen) {
-                    setExpanded((prev) => {
-                      const next = { ...prev };
-                      delete next[full];
-                      return next;
-                    });
+      const draftHere = editing?.mode === "create" && editing.parent === path ? editing : null;
+      return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+        draftHere !== null && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          InlineInput,
+          {
+            depth,
+            isDir: draftHere.kind === "directory",
+            initial: "",
+            onSubmit: submitCreate,
+            onCancel: cancelEdit
+          }
+        ),
+        entries.map((entry) => {
+          const full = `${path.replace(/\/$/, "")}/${entry.name}`;
+          const isDir = entry.type === "directory";
+          if (isDir) dirPaths.current.add(full);
+          const isOpen = expanded[full] !== void 0;
+          const isRenaming = editing?.mode === "rename" && editing.path === full;
+          return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+            isRenaming ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              InlineInput,
+              {
+                depth,
+                isDir,
+                initial: entry.name,
+                onSubmit: submitRename,
+                onCancel: cancelEdit
+              }
+            ) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              "div",
+              {
+                className: cx("dshf-node", selected === full && "dshf-selected"),
+                style: { paddingLeft: `${8 + depth * 14}px` },
+                onClick: () => {
+                  setSelected(full);
+                  if (isDir) {
+                    if (isOpen) {
+                      setExpanded((prev) => {
+                        const next = { ...prev };
+                        delete next[full];
+                        return next;
+                      });
+                    } else {
+                      void loadDir(full);
+                    }
                   } else {
-                    void loadDir(full);
+                    onOpenFile(full);
                   }
-                } else {
-                  onOpenFile(full);
-                }
-              },
-              onDoubleClick: () => {
-                if (!isDir && selected === full) onOpenFile(full);
-              },
-              title: full,
-              children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dshf-caret", children: isDir ? isOpen ? "\u25BE" : "\u25B8" : "" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: cx("dshf-icon", isDir ? "dshf-icon-dir" : "dshf-icon-file"), children: isDir ? "\u{1F4C1}" : "\u{1F4C4}" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dshf-name", children: entry.name }),
-                isDir && isOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dshf-node-actions", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dshf-mini", title: "\u91CD\u547D\u540D", onClick: (e) => {
-                    e.stopPropagation();
-                    onRename(full);
-                  }, children: "\u270E" }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dshf-mini", title: "\u5220\u9664", onClick: (e) => {
-                    e.stopPropagation();
-                    onDelete(full);
-                  }, children: "\u{1F5D1}" })
-                ] }),
-                !isDir && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dshf-node-actions", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dshf-mini", title: "\u91CD\u547D\u540D", onClick: (e) => {
-                    e.stopPropagation();
-                    onRename(full);
-                  }, children: "\u270E" }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dshf-mini", title: "\u5220\u9664", onClick: (e) => {
-                    e.stopPropagation();
-                    onDelete(full);
-                  }, children: "\u{1F5D1}" })
-                ] })
-              ]
-            }
-          ),
-          isDir && isOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            DirChildren,
-            {
-              node: expanded[full],
-              depth: depth + 1,
-              onRender: renderLevel,
-              onLoad: loadDir
-            }
-          )
-        ] }, full);
-      });
+                },
+                onDoubleClick: () => {
+                  if (!isDir && selected === full) onOpenFile(full);
+                },
+                title: full,
+                children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dshf-caret", children: isDir ? isOpen ? "\u25BE" : "\u25B8" : "" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: cx("dshf-icon", isDir ? "dshf-icon-dir" : "dshf-icon-file"), children: isDir ? "\u{1F4C1}" : "\u{1F4C4}" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dshf-name", children: entry.name }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dshf-node-actions", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dshf-mini", title: "\u91CD\u547D\u540D", onClick: (e) => {
+                      e.stopPropagation();
+                      setSelected(full);
+                      setEditing({ mode: "rename", path: full });
+                    }, children: "\u270E" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dshf-mini", title: "\u5220\u9664", onClick: (e) => {
+                      e.stopPropagation();
+                      onDelete(full);
+                    }, children: "\u{1F5D1}" })
+                  ] })
+                ]
+              }
+            ),
+            isDir && isOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              DirChildren,
+              {
+                node: expanded[full],
+                depth: depth + 1,
+                onRender: renderLevel
+              }
+            )
+          ] }, full);
+        })
+      ] });
     },
-    [expanded, selected, loadDir, onOpenFile, onRename, onDelete]
+    [expanded, selected, editing, loadDir, onOpenFile, onDelete, submitCreate, submitRename, cancelEdit]
   );
   return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dshf-tree-scroll", children: node === void 0 ? null : node.entries === null ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dshf-tree-hint", children: node.error ? `\u52A0\u8F7D\u5931\u8D25: ${node.error}` : "\u52A0\u8F7D\u4E2D\u2026" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dshf-tree-list", children: [
-    node.entries.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dshf-tree-hint", children: "\uFF08\u7A7A\u76EE\u5F55\uFF09" }),
+    node.entries.length === 0 && editing?.mode !== "create" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dshf-tree-hint", children: "\uFF08\u7A7A\u76EE\u5F55\uFF09" }),
     renderLevel(root, node.entries, 0)
   ] }) });
 });
-function DirChildren({ node, depth, onRender, onLoad }) {
+function DirChildren({ node, depth, onRender }) {
   if (node === void 0 || node.entries === null) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dshf-tree-hint", style: { paddingLeft: `${8 + depth * 14}px` }, children: node?.error ?? "\u52A0\u8F7D\u4E2D\u2026" });
   }
   return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: onRender(node.path, node.entries, depth) });
+}
+function InlineInput({ depth, isDir, initial, onSubmit, onCancel }) {
+  const [value, setValue] = (0, import_react.useState)(initial);
+  const inputRef = (0, import_react.useRef)(null);
+  (0, import_react.useEffect)(() => {
+    const el = inputRef.current;
+    if (el === null) return;
+    el.focus();
+    const dot = initial.lastIndexOf(".");
+    if (initial !== "" && dot > 0) el.setSelectionRange(0, dot);
+    else el.select();
+  }, [initial]);
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dshf-node dshf-node-editing", style: { paddingLeft: `${8 + depth * 14}px` }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dshf-caret" }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: cx("dshf-icon", isDir ? "dshf-icon-dir" : "dshf-icon-file"), children: isDir ? "\u{1F4C1}" : "\u{1F4C4}" }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+      "input",
+      {
+        ref: inputRef,
+        className: "dshf-inline-input",
+        value,
+        placeholder: initial === "" ? isDir ? "\u76EE\u5F55\u540D\u79F0" : "\u6587\u4EF6\u540D\u79F0" : void 0,
+        onChange: (e) => setValue(e.target.value),
+        onClick: (e) => e.stopPropagation(),
+        onKeyDown: (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            void onSubmit(value);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            onCancel();
+          }
+        },
+        onBlur: onCancel
+      }
+    )
+  ] });
 }
 
 // src/client/store.ts
@@ -307,7 +430,18 @@ var import_jsx_runtime2 = require("react/jsx-runtime");
 function cx2(...parts) {
   return parts.filter(Boolean).join(" ");
 }
-function FileManagerPanel({ remote, onClose, useSessions }) {
+function IconPlus(props) {
+  const size = props.size ?? 16;
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("svg", { width: size, height: size, viewBox: "0 0 16 16", fill: "none", "aria-hidden": "true", style: { display: "block" }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M8.64453 1.5V7.34961H14.5V8.65039H8.64453V14.5H7.34473V8.65039H1.5V7.34961H7.34473V1.5H8.64453Z", fill: "currentColor" }) });
+}
+function IconFolderAdd(props) {
+  const size = props.size ?? 16;
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("svg", { width: size, height: size, viewBox: "0 0 16 16", fill: "none", "aria-hidden": "true", style: { display: "block" }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { transform: "translate(9.52 2.52)", d: "M3.55246 0L3.55246 2.44252L6 2.44252L6 3.55748L3.55246 3.55748L3.55246 6L2.43834 6L2.43834 3.55748L0 3.55748L0 2.44252L2.43834 2.44252L2.43834 0L3.55246 0Z", fill: "currentColor" }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { transform: "translate(0.3496 2.35)", d: "M4.76367 0C5.36861 1.80598e-05 5.93113 0.310294 6.25488 0.821289L6.78027 1.64941C6.79685 1.67558 6.81791 1.69775 6.83887 1.71973C6.72186 2.15521 6.65702 2.61192 6.65137 3.08301C6.25601 2.96045 5.90909 2.70478 5.68164 2.3457L5.15723 1.5166C5.07183 1.38189 4.92318 1.3008 4.76367 1.30078L2.32422 1.30078C1.7589 1.30078 1.30078 1.7589 1.30078 2.32422L1.30078 10.1338C1.30078 10.6991 1.7589 11.1572 2.32422 11.1572L11.9766 11.1572C12.5419 11.1572 13 10.6991 13 8.58398C13.4545 8.5135 13.8903 8.38748 14.3008 8.21289L14.3008 10.1338C14.3008 11.4171 13.2598 12.458 11.9766 12.458L2.32422 12.458C1.04093 12.458 0 11.4171 0 10.1338L0 2.32422C0 1.04093 1.04093 0 2.32422 0L4.76367 0Z", fill: "currentColor" })
+  ] });
+}
+function FileManagerPanel({ remote, onClose, useSessions, onFileOpened }) {
   const [root, setRoot] = (0, import_react3.useState)(null);
   const [rootError, setRootError] = (0, import_react3.useState)(null);
   const [busy, setBusy] = (0, import_react3.useState)(false);
@@ -349,59 +483,30 @@ function FileManagerPanel({ remote, onClose, useSessions }) {
       try {
         const value = unwrap(await remote.readText(path));
         openTab({ path, content: value.content, savedContent: value.content, mtimeMs: value.mtimeMs, dirty: false });
+        onFileOpened?.();
       } catch (error) {
         handleNotice(`\u6253\u5F00\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         setBusy(false);
       }
     },
-    [remote, handleNotice]
+    [remote, handleNotice, onFileOpened]
   );
-  const handleCreate = (0, import_react3.useCallback)(
-    async (kind) => {
-      const cwd = treeRef.current?.cwd() ?? root ?? "";
-      const name = window.prompt(kind === "directory" ? "\u65B0\u5EFA\u76EE\u5F55\u540D\u79F0:" : "\u65B0\u5EFA\u6587\u4EF6\u540D\u79F0:");
-      if (!name) return;
-      setBusy(true);
-      try {
-        const target = `${cwd.replace(/\/$/, "")}/${name}`;
-        if (kind === "directory") await unwrap(await remote.createDirectory(target));
-        else {
-          await unwrap(await remote.createFile(target));
-          await openFile(target);
-        }
-        treeRef.current?.refresh();
-        handleNotice(kind === "directory" ? `\u5DF2\u521B\u5EFA\u76EE\u5F55 ${name}` : `\u5DF2\u521B\u5EFA\u6587\u4EF6 ${name}`);
-      } catch (error) {
-        handleNotice(`\u521B\u5EFA\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
-      } finally {
-        setBusy(false);
-      }
-    },
-    [remote, root, openFile, handleNotice]
-  );
-  const handleRename = (0, import_react3.useCallback)(
-    async (from) => {
-      const name = window.prompt("\u91CD\u547D\u540D\u4E3A:", from.split("/").pop() ?? "");
-      if (!name || name === from.split("/").pop()) return;
-      const to = `${from.slice(0, from.lastIndexOf("/"))}/${name}`;
-      setBusy(true);
-      try {
-        await unwrap(await remote.rename(from, to));
-        renameTab(from, to);
-        treeRef.current?.refresh();
-        handleNotice(`\u5DF2\u91CD\u547D\u540D ${name}`);
-      } catch (error) {
-        handleNotice(`\u91CD\u547D\u540D\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
-      } finally {
-        setBusy(false);
-      }
-    },
-    [remote, handleNotice]
-  );
-  const handleDelete = (0, import_react3.useCallback)(
-    async (path) => {
-      if (!window.confirm(`\u786E\u5B9A\u5220\u9664 ${path}\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\u3002`)) return;
+  const handleCreate = (0, import_react3.useCallback)((kind) => {
+    treeRef.current?.beginCreate(kind);
+  }, []);
+  const handleRenamed = (0, import_react3.useCallback)((from, to) => {
+    renameTab(from, to);
+  }, []);
+  const [pendingDelete, setPendingDelete] = (0, import_react3.useState)(null);
+  const handleDelete = (0, import_react3.useCallback)((path) => {
+    setPendingDelete(path);
+  }, []);
+  const confirmDelete = (0, import_react3.useCallback)(
+    async () => {
+      const path = pendingDelete;
+      setPendingDelete(null);
+      if (path === null) return;
       setBusy(true);
       try {
         await unwrap(await remote.delete(path));
@@ -414,7 +519,7 @@ function FileManagerPanel({ remote, onClose, useSessions }) {
         setBusy(false);
       }
     },
-    [remote, handleNotice]
+    [pendingDelete, remote, handleNotice]
   );
   const title = (0, import_react3.useMemo)(() => {
     if (root === null) return "\u2026";
@@ -424,9 +529,9 @@ function FileManagerPanel({ remote, onClose, useSessions }) {
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-toolbar", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dshf-title", title: root ?? "", children: title }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dshf-spacer" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dshf-btn", title: "\u65B0\u5EFA\u6587\u4EF6", onClick: () => void handleCreate("file"), children: "\uFF0B\u6587\u4EF6" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dshf-btn", title: "\u65B0\u5EFA\u76EE\u5F55", onClick: () => void handleCreate("directory"), children: "\uFF0B\u76EE\u5F55" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dshf-btn", title: "\u5173\u95ED\u6587\u4EF6\u7BA1\u7406\u5668", onClick: onClose, children: "\u2715" })
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dshf-btn dshf-btn-icon", title: "\u65B0\u5EFA\u6587\u4EF6", "aria-label": "\u65B0\u5EFA\u6587\u4EF6", onClick: () => handleCreate("file"), children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconPlus, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dshf-btn dshf-btn-icon", title: "\u65B0\u5EFA\u76EE\u5F55", "aria-label": "\u65B0\u5EFA\u76EE\u5F55", onClick: () => handleCreate("directory"), children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconFolderAdd, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dshf-btn dshf-btn-icon", title: "\u5173\u95ED\u6587\u4EF6\u7BA1\u7406\u5668", "aria-label": "\u5173\u95ED\u6587\u4EF6\u7BA1\u7406\u5668", onClick: onClose, children: "\u2715" })
     ] }),
     rootError !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dshf-error", children: rootError }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dshf-tree-pane", children: root !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
@@ -436,8 +541,9 @@ function FileManagerPanel({ remote, onClose, useSessions }) {
         remote,
         root,
         onOpenFile: (p) => void openFile(p),
-        onRename: (p) => void handleRename(p),
-        onDelete: (p) => void handleDelete(p)
+        onDelete: (p) => void handleDelete(p),
+        onRenamed: handleRenamed,
+        onNotice: handleNotice
       }
     ) }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-status", children: [
@@ -445,8 +551,51 @@ function FileManagerPanel({ remote, onClose, useSessions }) {
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: cx2("dshf-status-notice", notice === null && "dshf-hidden"), children: notice ?? "" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dshf-spacer" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dshf-status-hint", children: "\u70B9\u6587\u4EF6\u540E\u5728\u4E0A\u65B9\u300C\u6587\u4EF6\u300D\u6807\u7B7E\u4E2D\u7F16\u8F91" })
-    ] })
+    ] }),
+    pendingDelete !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      DeleteConfirmDialog,
+      {
+        path: pendingDelete,
+        onConfirm: () => void confirmDelete(),
+        onCancel: () => setPendingDelete(null)
+      }
+    )
   ] });
+}
+function DeleteConfirmDialog({ path, onConfirm, onCancel }) {
+  const name = path.split("/").pop() ?? path;
+  const confirmRef = (0, import_react3.useRef)(null);
+  (0, import_react3.useEffect)(() => {
+    confirmRef.current?.focus();
+  }, []);
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+    "div",
+    {
+      className: "dshf-modal-overlay",
+      onClick: onCancel,
+      onKeyDown: (e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          onCancel();
+        }
+      },
+      children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-modal", role: "alertdialog", "aria-modal": "true", "aria-label": "\u5220\u9664\u786E\u8BA4", onClick: (e) => e.stopPropagation(), children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-modal-title", children: [
+          "\u5220\u9664 ",
+          name
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-modal-body", children: [
+          "\u786E\u5B9A\u5220\u9664 ",
+          name,
+          " \u5417\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\u3002"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dshf-modal-actions", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dshf-btn", onClick: onCancel, children: "\u53D6\u6D88" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { ref: confirmRef, type: "button", className: "dshf-btn dshf-btn-danger", onClick: onConfirm, children: "\u5220\u9664" })
+        ] })
+      ] })
+    }
+  );
 }
 
 // src/client/FileEditorView.tsx
@@ -2499,6 +2648,65 @@ var styles_default = `/* dsh-file plugin styles. Kept dependency-free: plain CSS
   cursor: default;
 }
 
+/* \u7EAF\u56FE\u6807\u6309\u94AE\uFF08\u5DE5\u5177\u6761\uFF09\uFF1ADSH \u98CE\u683C\u7684\u65E0\u8FB9\u6846 ghost \u56FE\u6807\u6309\u94AE */
+.dshf-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-color: transparent;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+/* \u9875\u9762\u5185\u786E\u8BA4\u5F39\u5C42\uFF08\u66FF\u4EE3 window.confirm\uFF0C\u684C\u9762\u7AEF Electron \u4E0D\u652F\u6301\u539F\u751F\u5F39\u6846\uFF09 */
+.dshf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dshf-modal {
+  min-width: 260px;
+  max-width: 360px;
+  background: var(--dsw-alias-bg-primary, #ffffff);
+  color: var(--dsw-alias-label-primary, #1f2328);
+  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.15));
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  padding: 14px 16px;
+}
+.dshf-modal-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dshf-modal-body {
+  font-size: 13px;
+  color: var(--dsw-alias-label-secondary, #495057);
+  margin-bottom: 14px;
+  word-break: break-all;
+}
+.dshf-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.dshf-btn-danger {
+  background: var(--dsw-alias-danger-fg, #c92a2a);
+  border-color: transparent;
+  color: #ffffff;
+}
+.dshf-btn-danger:hover {
+  background: var(--dsw-alias-danger-fg, #c92a2a);
+  filter: brightness(1.1);
+}
+
 .dshf-error {
   padding: 8px 12px;
   color: var(--dsw-alias-danger-fg, #c92a2a);
@@ -2562,6 +2770,24 @@ var styles_default = `/* dsh-file plugin styles. Kept dependency-free: plain CSS
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+
+/* VS Code \u5F0F\u5185\u8054\u8F93\u5165\u884C\uFF08\u65B0\u5EFA/\u91CD\u547D\u540D\uFF09\uFF1Aaccent \u8FB9\u6846\u7684\u8F93\u5165\u6846 */
+.dshf-node-editing {
+  cursor: default;
+}
+.dshf-inline-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: inherit;
+  background: var(--dsw-alias-bg-primary, #ffffff);
+  border: 1px solid var(--dsw-alias-accent-strong, #4dabf7);
+  border-radius: 4px;
+  padding: 1px 4px;
+  outline: none;
 }
 
 .dshf-node-actions {
@@ -3129,7 +3355,7 @@ function apply(ctx) {
       name: "sidebar.workspaces",
       priority: -1,
       registrant: "dsh-file"
-    }, (props) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FileManagerPanel, { ...face, useSessions: props.useSessions }));
+    }, (props) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FileManagerPanel, { ...face, useSessions: props.useSessions, onFileOpened: activateEditorView }));
     open = true;
     ctx.logger?.info?.("[dsh-file] file manager opened");
   };
@@ -3160,6 +3386,15 @@ function apply(ctx) {
       isOpen: () => open
     })
   }, FileToggleButton));
+  const activateEditorView = () => {
+    const label = t("view.label");
+    for (const tab of Array.from(document.querySelectorAll('[role="tab"]'))) {
+      if (tab.textContent?.trim() === label) {
+        tab.click();
+        return;
+      }
+    }
+  };
   ctx.effect(() => () => {
     closePanel();
   }, "dsh-file: panel cleanup");
@@ -3177,13 +3412,23 @@ function FileToggleButton(props) {
       title,
       "aria-label": label,
       onClick: onToggle,
-      style: isOpen() ? { fontWeight: 700, color: "var(--dsw-alias-accent-strong, #4dabf7)" } : void 0,
+      style: isOpen() ? { fontWeight: 700 } : void 0,
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { "aria-hidden": "true", style: { fontSize: wide ? 14 : 16, lineHeight: 1 }, children: "\u{1F5C2}" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FolderOpenIcon, { size: wide ? 14 : 16 }),
         wide ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dshf-toggle-label", children: label }) : null
       ]
     }
   );
+}
+function FolderOpenIcon(props) {
+  const size = props.size ?? 16;
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("svg", { width: size, height: size, viewBox: "0 0 16 16", fill: "none", "aria-hidden": "true", style: { display: "block" }, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+    "path",
+    {
+      d: "M5.19629 1.57104C5.81144 1.5711 6.38623 1.8786 6.72754 2.39038L7.19922 3.09839C7.28454 3.22635 7.42824 3.30344 7.58203 3.30347H12.1699C13.5039 3.30348 14.5859 4.38548 14.5859 5.71948V6.62671C15.2694 7.02689 15.6605 7.85012 15.4385 8.68726L14.3848 12.658C14.1037 13.7164 13.1449 14.4527 12.0498 14.4529H2.91699C1.51651 14.4529 0.451662 13.2814 0.501954 11.9519V3.98706C0.501954 2.65305 1.58396 1.57104 2.91797 1.57104H5.19629ZM3.7793 7.75562C3.30994 7.75562 2.89883 8.07153 2.77832 8.52515L1.91602 11.7722C1.74167 12.4291 2.23734 13.073 2.91699 13.073H12.0498C12.5191 13.0728 12.9304 12.757 13.0508 12.3035L14.1045 8.33374C14.1819 8.04202 13.9619 7.756 13.6602 7.75562H3.7793ZM2.91797 2.9519C2.34625 2.9519 1.88281 3.41534 1.88281 3.98706V7.2937C2.33068 6.7269 3.02249 6.37476 3.7793 6.37476H13.2051V5.71948C13.2051 5.14777 12.7416 4.68434 12.1699 4.68433H7.58203C6.96675 4.6843 6.39209 4.37595 6.05078 3.86401L5.5791 3.15601C5.49379 3.02821 5.34995 2.95196 5.19629 2.9519H2.91797Z",
+      fill: "currentColor"
+    }
+  ) });
 }
 return module.exports;
   }

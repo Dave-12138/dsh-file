@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/hero.svg" alt="dsh-file — DeepSeek Harness 的 VS Code 风格文件管理器插件" width="100%" />
+  <img src="docs/logo-transparent.svg" alt="dsh-file logo" width="120" />
 </p>
 
 <p align="center">
@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/chengzhi43/dsh-file/releases"><img alt="version" src="https://img.shields.io/badge/version-0.1.0-0969da?style=flat" /></a>
+  <a href="https://github.com/chengzhi43/dsh-file/releases"><img alt="version" src="https://img.shields.io/badge/version-0.1.1-0969da?style=flat" /></a>
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat" /></a>
   <img alt="DeepSeek Harness" src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-4dabf7?style=flat" />
   <a href="https://github.com/chengzhi43/dsh-file"><img alt="stars" src="https://img.shields.io/github/stars/chengzhi43/dsh-file?style=flat&label=stars" /></a>
@@ -60,7 +60,7 @@ dsh plugin --profile desktop add .
 npm publish                      # 发布到 registry（files 已含 dist/ + cordis.patch.yml）
 dsh plugin --profile web add dsh-file
 # 或本地 tarball
-pnpm pack && dsh plugin --profile web add ./dsh-file-0.1.0.tgz
+pnpm pack && dsh plugin --profile web add ./dsh-file-0.1.1.tgz
 ```
 
 ### 配置
