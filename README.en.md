@@ -30,6 +30,14 @@
 >
 > DeepSeek Harness 的 VS Code 风格文件管理器插件：在 Web 侧边栏浏览当前对话工作区的文件，在中间主区域编辑。
 
+## Screenshot
+
+<p align="center">
+  <img src="docs/screenshot.jpg" alt="dsh-file in action: sidebar file tree, Monaco editor in the center column" width="100%" />
+</p>
+
+Browse the workspace in the sidebar tree; clicking a file opens it in the center-column "Files" view (Monaco editor with syntax highlighting).
+
 ## Installation
 
 <a id="installation"></a>

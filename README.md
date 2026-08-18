@@ -30,6 +30,14 @@
 > 
 > A VS Code-style file manager plugin for DeepSeek Harness Web: browse the current conversation's workspace from the sidebar and edit files in the center column.
 
+## 截图
+
+<p align="center">
+  <img src="docs/screenshot.jpg" alt="dsh-file 使用界面：左侧文件树，中间 Monaco 编辑器" width="100%" />
+</p>
+
+侧边栏文件树浏览工作区，点击文件后在中间列「文件」视图中编辑（Monaco 编辑器，语法高亮）。
+
 ## 安装
 
 ```sh
