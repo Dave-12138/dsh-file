@@ -1,5 +1,5 @@
 {
-  "name": "dsh-file",
+  "name": "@rose43/dsh-file",
   "version": "0.1.2",
   "description": "A VS Code-style file manager plugin for DeepSeek Harness Web — DeepSeek Harness 的 VS Code 风格文件管理器插件（浏览、打开、编辑当前对话工作区的文件）.",
   "type": "module",
@@ -32,6 +32,9 @@
     "client": {
       "platform": "web"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "marked": "^18.0.9",

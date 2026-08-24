@@ -65,13 +65,13 @@ dsh plugin --profile desktop add .
 ### 从 npm 安装
 
 ```sh
-dsh plugin --profile web add dsh-file
+dsh plugin --profile web add @rose43/dsh-file
 ```
 
 或从 [Releases](https://github.com/chengzhi43/dsh-file/releases) 页面下载 tarball 后本地安装（桌面端把 `--profile web` 换成 `--profile desktop`）：
 
 ```sh
-dsh plugin --profile web add ./dsh-file-0.1.1.tgz
+dsh plugin --profile web add ./rose43-dsh-file-0.1.2.tgz
 ```
 
 ### 配置
@@ -80,8 +80,8 @@ dsh plugin --profile web add ./dsh-file-0.1.1.tgz
 
 ```yaml
 - insert:
-    - id: dsh-file
-      name: 'dsh-file'
+    - id: '@rose43/dsh-file'
+      name: '@rose43/dsh-file'
       config:
         root: !!js process.cwd()   # 仅作为打开文件管理器前的兜底根目录
 ```
@@ -141,7 +141,7 @@ dsh plugin --profile web add ./dsh-file-0.1.1.tgz
 
 ## 架构
 
-插件由两半组成，共用包名 `dsh-file`：
+插件由两半组成，共用包名 `@rose43/dsh-file`（GitHub 仓库仍为 `chengzhi43/dsh-file`）：
 
 |        | Host 半（Node 进程）                                                      | Client 半（浏览器 React）                           |
 | ------ | -------------------------------------------------------------------- | --------------------------------------------- |

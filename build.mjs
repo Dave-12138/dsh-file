@@ -49,7 +49,7 @@ const CLIENT_EXTERNALS = [
 
 const CLIENT_BANNER = `
 window.__ModuleLoader__.load({
-  id: "dsh-file",
+  id: "@rose43/dsh-file",
   factory: (require) => {
     var module = { exports: {} };
     var exports = module.exports;
