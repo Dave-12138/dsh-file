@@ -12,5 +12,5 @@
     "allowImportingTsExtensions": false,
     "types": ["node"]
   },
-  "include": ["src/index.ts"]
+  "include": ["src/index.ts", "src/typert.host.ts"]
 }
