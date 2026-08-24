@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FileManagerRemote, FileEntry } from './remote.ts';
 import { unwrap } from './remote.ts';
 import { FileTree, type TreeRef } from './FileTree.tsx';
-import { openTab, removeTabs, renameTab, resetAll } from './store.ts';
+import { openTab, removeTabs, renameTab, setWorkspaceRoot } from './store.ts';
 
 /** Simple classnames helper (no deps). */
 function cx(...parts: Array<string | false | null | undefined>): string {
@@ -90,6 +90,14 @@ export function FileManagerPanel({ remote, onClose, useSessions, onFileOpened }:
         if (!cancelled) {
           setRoot(path);
           setRootError(null);
+          // Tell the editor store which workspace these files belong to. This
+          // clears pristine editor state on a genuine workspace SWITCH (so
+          // stale tabs from a previous workspace don't linger), while treating
+          // the same root as a no-op — so toggling to the "对话" view and back
+          // keeps all open tabs and unsaved edits. The panel's own unmount must
+          // NOT wipe editor state: the panel unmounts whenever the "文件" view
+          // loses focus, which is a normal navigation, not a close gesture.
+          setWorkspaceRoot(path);
         }
       } catch (error) {
         if (!cancelled) setRootError(error instanceof Error ? error.message : String(error));
@@ -100,10 +108,11 @@ export function FileManagerPanel({ remote, onClose, useSessions, onFileOpened }:
     };
   }, [remote, sessionCwd]);
 
-  // Panel closed: drop editor state (the center dialog closes with the tree).
-  useEffect(() => () => {
-    resetAll();
-  }, []);
+  // NOTE: do NOT reset editor state on panel unmount. The panel unmounts
+  // whenever the "文件" conversation view loses focus (the sidebar sync in
+  // index.tsx closes it), which is normal navigation — wiping tabs here would
+  // silently discard unsaved edits. Editor state is reset only when the
+  // workspace root actually changes (see setWorkspaceRoot above).
 
   const handleNotice = useCallback((message: string) => {
     setNotice(message);

@@ -21,6 +21,12 @@ export interface OpenTab {
 
 let tabs: OpenTab[] = [];
 let activePath: string | null = null;
+/**
+ * The workspace root the open tabs belong to (resolved by the sidebar panel
+ * after `setRoot`). Used only to detect a real WORKSPACE switch so stale tabs
+ * from a previous workspace are dropped — never to reset on a mere view toggle.
+ */
+let workspaceRoot: string | null = null;
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -34,22 +40,24 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-function snapshot(): OpenTab[] {
+/** Read-only access to the current open tabs (used by the hook and tests). */
+export function getTabs(): OpenTab[] {
   return tabs;
 }
 
-function snapshotActive(): string | null {
+/** Read-only access to the active file path (used by the hook and tests). */
+export function getActivePath(): string | null {
   return activePath;
 }
 
 /** Subscribe the sidebar tree / editor overlay to the open-tab state. */
 export function useTabs(): OpenTab[] {
-  return useSyncExternalStore(subscribe, snapshot);
+  return useSyncExternalStore(subscribe, getTabs);
 }
 
 /** Subscribe to the active file path (null while the editor dialog is closed). */
 export function useActivePath(): string | null {
-  return useSyncExternalStore(subscribe, snapshotActive);
+  return useSyncExternalStore(subscribe, getActivePath);
 }
 
 /** Open (or focus) one file tab. */
@@ -122,6 +130,23 @@ export function resetAll(): void {
   tabs = [];
   activePath = null;
   emit();
+}
+
+/**
+ * Record the workspace root the open tabs belong to.
+ *
+ * If the root CHANGED (a real workspace / session switch), drop all editor
+ * state so stale tabs from the previous workspace don't linger. Passing the
+ * SAME root — e.g. when the sidebar panel remounts after toggling between the
+ * "文件" and "对话" views — is a NO-OP, so unsaved edits and open tabs survive
+ * ordinary view switches. The sidebar panel calls this after it re-resolves
+ * the gateway root; the panel's own unmount must NOT reset state directly, or
+ * switching conversation views would silently discard the user's work.
+ */
+export function setWorkspaceRoot(root: string): void {
+  if (workspaceRoot === root) return;
+  workspaceRoot = root;
+  resetAll();
 }
 
 // ── sidebar visibility sync ────────────────────────────────────────────────
