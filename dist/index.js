@@ -52,9 +52,20 @@ var __esDecorate = (this && this.__esDecorate) || function (ctor, descriptorIn, 
  * when they escape it.
  */
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
+import { settingsNamespace } from '@deepseek-ai/dsh-settings';
+import Schema from '@deepseek-ai/schemastery';
 import * as fs from 'node:fs/promises';
 import * as nodePath from 'node:path';
 import { mimeOf } from './mime.js';
+/** Settings namespace for the dsh-file preference section (mirrored by the client). */
+export const FILE_SETTINGS_NS = settingsNamespace('dsh-file');
+/** Root fallback before any session pin (same default as the entry `config.root`). */
+const FILE_ROOT_DEFAULT = process.cwd();
+/** Settings schema for dsh-file: root fallback + the editor link flag. */
+const FILE_SETTINGS_SCHEMA = Schema.object({
+    root: Schema.string().default(FILE_ROOT_DEFAULT),
+    openLinksInEditor: Schema.boolean().default(false),
+});
 /**
  * Resolve an untrusted client path against the workspace root.
  *
@@ -109,8 +120,30 @@ let FileManagerGateway = (() => {
                 super(ctx, 'fileManager');
                 /** Workspace root served by the gateway; re-pinnable via the setRoot RPC (falls back to config/process.cwd()). */
                 this.root = __runInitializers(this, _instanceExtraInitializers);
-                this.root = nodePath.resolve(config.root ?? process.cwd());
+                /** True once a session pinned the root via setRoot; a session pin beats settings. */
+                this.pinned = false;
+                this.root = nodePath.resolve(config.root ?? FILE_ROOT_DEFAULT);
                 this.openLinksInEditor = config.openLinksInEditor === true;
+                // Register the dsh-file settings namespace: schema defaults, then the entry
+                // config (base), then the user document (edited in 设置 → 插件). The watch
+                // re-applies the resolved value live, so a save in the settings card takes
+                // effect without a restart.
+                const settings = ctx.settings;
+                const scope = settings?.register(FILE_SETTINGS_NS, FILE_SETTINGS_SCHEMA, {
+                    base: { root: this.root, openLinksInEditor: this.openLinksInEditor },
+                    applies: 'live',
+                });
+                if (scope !== undefined) {
+                    const applyResolved = () => {
+                        const resolved = (scope.get() ?? {});
+                        if (!this.pinned && typeof resolved.root === 'string' && resolved.root !== '') {
+                            this.root = nodePath.resolve(resolved.root);
+                        }
+                        this.openLinksInEditor = resolved.openLinksInEditor === true;
+                    };
+                    applyResolved();
+                    scope.watch(() => applyResolved());
+                }
                 // Diagnostics: confirm the gateway is instantiated by the cordis loader.
                 console.log(`[dsh-file] FileManagerGateway constructed, root=${this.root}`);
             }
@@ -303,6 +336,7 @@ let FileManagerGateway = (() => {
                 const st = await fs.stat(abs);
                 if (!st.isDirectory())
                     throw new Error(`not a directory: ${abs}`);
+                this.pinned = true;
                 this.root = await fs.realpath(abs);
                 return { path: this.root };
             }
@@ -337,7 +371,7 @@ let FileManagerGateway = (() => {
             __esDecorate(_a, null, _setRoot_decorators, { kind: "method", name: "setRoot", static: false, private: false, access: { has: obj => "setRoot" in obj, get: obj => obj.setRoot }, metadata: _metadata }, null, _instanceExtraInitializers);
             if (_metadata) Object.defineProperty(_a, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
         })(),
-        _a.inject = [],
+        _a.inject = ['settings'],
         _a;
 })();
 export { FileManagerGateway };

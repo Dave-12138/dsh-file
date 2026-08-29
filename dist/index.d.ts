@@ -19,6 +19,8 @@
  */
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import type { Context } from '@deepseek-ai/cordis';
+/** Settings namespace for the dsh-file preference section (mirrored by the client). */
+export declare const FILE_SETTINGS_NS: import("@deepseek-ai/dsh-settings").SettingsNamespace;
 /** One directory entry in a listing. */
 export interface FileEntry {
     name: string;
@@ -70,9 +72,12 @@ export declare class FileManagerGateway extends TypertRemoteService {
     /**
      * Optional switch: route conversation file links (produced chips / inline
      * mentions) into this plugin's editor instead of the host's native opener.
-     * Off by default; enable with `openLinksInEditor: true` on the plugin row.
+     * Off by default; enable with `openLinksInEditor: true` on the plugin row or
+     * in the settings section (live, no restart).
      */
     private openLinksInEditor;
+    /** True once a session pinned the root via setRoot; a session pin beats settings. */
+    private pinned;
     constructor(ctx: Context, config?: {
         root?: string;
         openLinksInEditor?: boolean;

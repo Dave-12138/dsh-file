@@ -2714,6 +2714,172 @@ function installOpenLinksInterceptor(handlers) {
   return () => document.removeEventListener("click", onCapture, true);
 }
 
+// src/client/settingsCard.tsx
+var import_react7 = require("react");
+var import_jsx_runtime4 = require("react/jsx-runtime");
+var CLEAR = Symbol("clear");
+var FIELDS = [
+  { key: "root", type: "text", labelKey: "settings.root", hintKey: "settings.rootHint" },
+  { key: "openLinksInEditor", type: "bool", labelKey: "settings.openLinks", hintKey: "settings.openLinksHint" }
+];
+var sCard = {
+  pending: { whiteSpace: "nowrap", background: "var(--dsw-alias-bg-module-platform)", color: "var(--dsw-alias-label-secondary)", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 500, lineHeight: "17px" },
+  readOnly: { color: "var(--dsw-alias-label-tertiary)", margin: "12px 0 0", fontSize: 12, lineHeight: 1.5 },
+  field: { flexDirection: "column", gap: 6, padding: "12px 0", display: "flex" },
+  fieldBorder: { borderTop: "1px solid var(--dsw-alias-border-l2)" },
+  labelRow: { alignItems: "center", gap: 8, display: "flex" },
+  label: { minWidth: 0, color: "var(--dsw-alias-label-primary)", flex: 1, fontSize: 13, fontWeight: 500, lineHeight: "20px" },
+  badge: { background: "var(--dsw-alias-bg-module-platform)", color: "var(--dsw-alias-label-secondary)", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 500, lineHeight: "17px" },
+  reset: { font: "inherit", color: "var(--dsw-alias-label-secondary)", cursor: "pointer", background: "none", border: "none", padding: 0, textDecoration: "underline" },
+  hint: { color: "var(--dsw-alias-label-tertiary)", margin: 0, fontSize: 12, lineHeight: 1.5 },
+  input: { border: "1px solid var(--dsw-alias-border-l2)", background: "var(--dsw-specific-input-major)", height: 34, borderRadius: 6, padding: "0 10px", color: "var(--dsw-alias-label-primary)", font: "inherit", fontSize: 13, width: "100%", boxSizing: "border-box", outline: "none" },
+  boolRow: { alignItems: "center", gap: 12, minHeight: 34, display: "flex" },
+  boolInput: { blockSize: 18, inlineSize: 34, accentColor: "var(--dsw-alias-brand-primary)", cursor: "pointer", flex: "none" },
+  discard: { appearance: "none", font: "inherit", cursor: "pointer", border: "1px solid var(--dsw-alias-border-l2)", background: "transparent", borderRadius: 8, padding: "5px 12px", fontSize: 12, color: "var(--dsw-alias-label-secondary)" },
+  save: { appearance: "none", font: "inherit", cursor: "pointer", border: "1px solid transparent", borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 500, color: "#fff", background: "var(--dsw-alias-brand-primary)" },
+  disabled: { opacity: 0.4, cursor: "default" },
+  failed: { whiteSpace: "nowrap", color: "var(--dsw-alias-label-error)", fontSize: 12, lineHeight: 1.5 }
+};
+var draftText = (d, current3) => {
+  if (d === void 0) return current3 === void 0 || current3 === null ? "" : String(current3);
+  if (d === CLEAR) return "";
+  return String(d);
+};
+var draftBool = (d, current3) => {
+  if (d === void 0 || d === CLEAR) return !!current3;
+  return !!d;
+};
+function FileManagerSettingsCard(props) {
+  const { scope, t } = props;
+  const [snap, setSnap] = (0, import_react7.useState)(() => scope?.getSnapshot());
+  const [drafts, setDrafts] = (0, import_react7.useState)({});
+  const [saving, setSaving] = (0, import_react7.useState)(false);
+  const [failed2, setFailed] = (0, import_react7.useState)(false);
+  (0, import_react7.useEffect)(() => {
+    if (!scope) return;
+    return scope.subscribe(() => setSnap(scope.getSnapshot()));
+  }, [scope]);
+  if (!scope || !snap || snap.status !== "ready") return null;
+  const value = snap.value ?? {};
+  const user = snap.user ?? {};
+  const writable = !!snap.writable;
+  const dirty = Object.keys(drafts).length > 0;
+  const text = (key, fallback) => {
+    const v2 = t ? t(key) : "";
+    return v2 === "" || v2 === key ? fallback : v2;
+  };
+  const stage = (key, val) => {
+    setDrafts((d) => ({ ...d, [key]: val }));
+    setFailed(false);
+  };
+  const save = async () => {
+    const ops = [];
+    for (const f2 of FIELDS) {
+      const d = drafts[f2.key];
+      if (d === void 0) continue;
+      if (d === CLEAR) {
+        if (user[f2.key] !== void 0) ops.push({ key: f2.key, clear: true });
+        continue;
+      }
+      if (f2.type === "bool") {
+        if (d !== !!value[f2.key]) ops.push({ key: f2.key, value: !!d });
+      } else {
+        const raw = String(d).trim();
+        if (raw === "") {
+          if (user[f2.key] !== void 0) ops.push({ key: f2.key, clear: true });
+        } else if (raw !== (value[f2.key] ?? "")) {
+          ops.push({ key: f2.key, value: raw });
+        }
+      }
+    }
+    if (ops.length === 0) {
+      setDrafts({});
+      return;
+    }
+    setSaving(true);
+    setFailed(false);
+    try {
+      for (const op of ops) {
+        if (op.clear) await scope.unset(op.key);
+        else await scope.set(op.key, op.value);
+      }
+      setDrafts({});
+    } catch {
+      setFailed(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { padding: "16px 16px 20px" }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("h4", { style: { margin: 0, fontSize: 14, fontWeight: 600, color: "var(--dsw-alias-label-primary)", flex: 1 }, children: text("settings.title", "\u6587\u4EF6\u7BA1\u7406\u5668\u8BBE\u7F6E") }),
+      dirty ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: sCard.pending, children: text("settings.pending", "\u6709\u672A\u4FDD\u5B58\u4FEE\u6539") }) : null,
+      failed2 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: sCard.failed, children: text("settings.failed", "\u4FDD\u5B58\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5") }) : null,
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { display: "flex", gap: 8 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            style: { ...sCard.discard, ...!dirty || saving ? sCard.disabled : {} },
+            disabled: !dirty || saving,
+            onClick: () => setDrafts({}),
+            children: text("settings.discard", "\u653E\u5F03\u4FEE\u6539")
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            style: { ...sCard.save, ...!dirty || saving || !writable ? sCard.disabled : {} },
+            disabled: !dirty || saving || !writable,
+            onClick: () => void save(),
+            children: saving ? text("settings.saving", "\u4FDD\u5B58\u4E2D\u2026") : text("settings.save", "\u4FDD\u5B58")
+          }
+        )
+      ] })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: { color: "var(--dsw-alias-label-tertiary)", margin: "6px 0 0", fontSize: 12, lineHeight: 1.5 }, children: text("settings.desc", "\u5DE5\u4F5C\u533A\u6839\u76EE\u5F55\u4E0E\u4F1A\u8BDD\u6587\u4EF6\u94FE\u63A5\u884C\u4E3A\uFF1B\u4FDD\u5B58\u540E\u7ACB\u5373\u751F\u6548") }),
+    writable ? null : /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: sCard.readOnly, children: text("settings.readOnly", "\u5F53\u524D\u8BBE\u7F6E\u53EA\u8BFB\uFF08\u672A\u6302\u8F7D\u53EF\u5199\u8BBE\u7F6E\u5B58\u50A8\uFF09\u3002") }),
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { children: FIELDS.map((f2, i) => {
+      const draft = drafts[f2.key];
+      const overridden = user[f2.key] !== void 0 && draft !== CLEAR;
+      const isClear = draft === CLEAR;
+      return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { ...sCard.field, ...i > 0 ? sCard.fieldBorder : {} }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: sCard.labelRow, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("label", { style: sCard.label, htmlFor: `dsh-file-${f2.key}`, children: text(f2.labelKey, f2.labelKey) }),
+          overridden ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: sCard.badge, children: text("settings.overridden", "\u5DF2\u8986\u76D6") }) : null,
+          user[f2.key] !== void 0 && !isClear ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", style: sCard.reset, onClick: () => stage(f2.key, CLEAR), children: text("settings.reset", "\u91CD\u7F6E") }) : null
+        ] }),
+        f2.type === "bool" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: sCard.boolRow, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { ...sCard.hint, flex: 1 }, children: text(f2.hintKey, "") }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            "input",
+            {
+              id: `dsh-file-${f2.key}`,
+              type: "checkbox",
+              style: sCard.boolInput,
+              checked: draftBool(draft, value[f2.key]),
+              disabled: !writable || saving,
+              onChange: (e) => stage(f2.key, e.target.checked)
+            }
+          )
+        ] }) : /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "input",
+          {
+            id: `dsh-file-${f2.key}`,
+            type: "text",
+            style: sCard.input,
+            value: draftText(draft, value[f2.key]),
+            disabled: !writable || saving,
+            onChange: (e) => stage(f2.key, e.target.value)
+          }
+        ),
+        f2.type === "text" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: sCard.hint, children: text(f2.hintKey, "") }) : null
+      ] }, f2.key);
+    }) })
+  ] });
+}
+
 // src/client/styles.css
 var styles_default = `/* dsh-file plugin styles. Kept dependency-free: plain CSS with DSH design
  * tokens where available, sensible fallbacks elsewhere. */
@@ -3424,7 +3590,7 @@ var styles_default = `/* dsh-file plugin styles. Kept dependency-free: plain CSS
 `;
 
 // src/client/index.tsx
-var import_jsx_runtime4 = require("react/jsx-runtime");
+var import_jsx_runtime5 = require("react/jsx-runtime");
 var CSS_TAG = "dsh-file/styles.css";
 if (typeof document !== "undefined" && document.querySelector(`style[data-plugin-css="${CSS_TAG}"]`) === null) {
   const tag = document.createElement("style");
@@ -3439,19 +3605,58 @@ var zh = {
   "toggle.open": "\u6253\u5F00\u6587\u4EF6\u7BA1\u7406\u5668",
   "toggle.close": "\u5173\u95ED\u6587\u4EF6\u7BA1\u7406\u5668",
   "view.label": "\u6587\u4EF6",
-  "view.empty": "\u5728\u5DE6\u4FA7\u6587\u4EF6\u6811\u4E2D\u9009\u62E9\u4E00\u4E2A\u6587\u4EF6\uFF0C\u5373\u53EF\u5728\u6B64\u7F16\u8F91"
+  "view.empty": "\u5728\u5DE6\u4FA7\u6587\u4EF6\u6811\u4E2D\u9009\u62E9\u4E00\u4E2A\u6587\u4EF6\uFF0C\u5373\u53EF\u5728\u6B64\u7F16\u8F91",
+  "settings.title": "\u6587\u4EF6\u7BA1\u7406\u5668\u8BBE\u7F6E",
+  "settings.desc": "\u5DE5\u4F5C\u533A\u6839\u76EE\u5F55\u4E0E\u4F1A\u8BDD\u6587\u4EF6\u94FE\u63A5\u884C\u4E3A\uFF1B\u4FDD\u5B58\u540E\u7ACB\u5373\u751F\u6548",
+  "settings.root": "\u5DE5\u4F5C\u533A\u6839\u76EE\u5F55\uFF08\u515C\u5E95\uFF09",
+  "settings.rootHint": "\u6587\u4EF6\u7BA1\u7406\u5668\u6253\u5F00\u65F6\u4F1A\u9489\u5230\u5F53\u524D\u4F1A\u8BDD\u7684\u5DE5\u4F5C\u533A\uFF1B\u6B64\u5904\u4EC5\u5728\u4F1A\u8BDD\u672A\u9489\u5B9A\u6839\u76EE\u5F55\u65F6\u4F5C\u4E3A\u8D77\u59CB\u76EE\u5F55\u3002",
+  "settings.openLinks": "\u4F1A\u8BDD\u6587\u4EF6\u94FE\u63A5\u7528\u7F16\u8F91\u5668\u6253\u5F00",
+  "settings.openLinksHint": "\u5F00\u542F\u540E\u70B9\u51FB\u4F1A\u8BDD\u4E2D\u7684\u6587\u4EF6\u94FE\u63A5\uFF08\u4EA7\u7269 / \u884C\u5185\u5F15\u7528\uFF09\u4F1A\u5728\u6B64\u7F16\u8F91\u5668\u4E2D\u6253\u5F00\uFF1B\u7F16\u8F91\u5668\u5904\u7406\u4E0D\u4E86\u7684\u6587\u4EF6\u56DE\u9000\u5230\u7CFB\u7EDF\u6253\u5F00\u3002",
+  "settings.overridden": "\u5DF2\u8986\u76D6",
+  "settings.reset": "\u91CD\u7F6E",
+  "settings.discard": "\u653E\u5F03\u4FEE\u6539",
+  "settings.save": "\u4FDD\u5B58",
+  "settings.saving": "\u4FDD\u5B58\u4E2D\u2026",
+  "settings.pending": "\u6709\u672A\u4FDD\u5B58\u4FEE\u6539",
+  "settings.failed": "\u4FDD\u5B58\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5",
+  "settings.readOnly": "\u5F53\u524D\u8BBE\u7F6E\u53EA\u8BFB\uFF08\u672A\u6302\u8F7D\u53EF\u5199\u8BBE\u7F6E\u5B58\u50A8\uFF09\u3002"
 };
 var en = {
   "toggle.label": "Files",
   "toggle.open": "Open file manager",
   "toggle.close": "Close file manager",
   "view.label": "Files",
-  "view.empty": "Select a file in the sidebar tree to edit it here"
+  "view.empty": "Select a file in the sidebar tree to edit it here",
+  "settings.title": "File manager settings",
+  "settings.desc": "Workspace root and conversation file-link behavior; applies immediately on save",
+  "settings.root": "Workspace root (fallback)",
+  "settings.rootHint": "The manager pins to the active session workspace when opened; this root is only used until a session pins one.",
+  "settings.openLinks": "Open conversation file links in the editor",
+  "settings.openLinksHint": "When enabled, clicking conversation file links (produced files / inline mentions) opens them in this editor; files it cannot handle fall back to the system opener.",
+  "settings.overridden": "Overridden",
+  "settings.reset": "Reset",
+  "settings.discard": "Discard changes",
+  "settings.save": "Save",
+  "settings.saving": "Saving...",
+  "settings.pending": "Unsaved changes",
+  "settings.failed": "Save failed, retry",
+  "settings.readOnly": "Settings are read-only (no writable settings storage mounted)."
 };
-var inject = ["slots", "locale", "remote"];
+var inject = ["slots", "locale", "remote", "settingsScope"];
 function apply(ctx) {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), "dsh-file: dictionaries");
   const t = ctx.locale.bind(NS);
+  const SETTINGS_NS = "dsh-file";
+  const settingsScope = ctx.settingsScope.bind({ namespace: SETTINGS_NS });
+  ctx.slots.inject(
+    "settings.plugin.item",
+    () => ctx.slots.register({
+      name: "settings.plugin.item",
+      key: SETTINGS_NS,
+      locale: NS,
+      inject: () => ({ scope: settingsScope })
+    }, FileManagerSettingsCard)
+  );
   const mountRemote = ctx.effect(async () => {
     const dispose = await ctx.remote.$mount(TYPERT_REMOTE);
     return () => dispose();
@@ -3476,7 +3681,7 @@ function apply(ctx) {
       name: "sidebar.workspaces",
       priority: -1,
       registrant: "dsh-file"
-    }, (props) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FileManagerPanel, { ...face, useSessions: props.useSessions, onFileOpened: activateEditorView }));
+    }, (props) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(FileManagerPanel, { ...face, useSessions: props.useSessions, onFileOpened: activateEditorView }));
     open = true;
     ctx.logger?.info?.("[dsh-file] file manager opened");
   };
@@ -3496,7 +3701,7 @@ function apply(ctx) {
   }, () => {
     const remote = ctx.get("remote.fileManager");
     if (remote === void 0) return null;
-    return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FileEditorView, { remote });
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(FileEditorView, { remote });
   }));
   ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
     name: "sidebar.footer.action",
@@ -3518,6 +3723,21 @@ function apply(ctx) {
   };
   let disposeLinkInterceptor = null;
   let unloaded = false;
+  const setLinkInterceptor = (enabled) => {
+    if (enabled && disposeLinkInterceptor === null) {
+      disposeLinkInterceptor = installOpenLinksInterceptor(handlers);
+      ctx.logger?.info?.("[dsh-file] openLinksInEditor: conversation file links open in the editor");
+    } else if (!enabled && disposeLinkInterceptor !== null) {
+      disposeLinkInterceptor();
+      disposeLinkInterceptor = null;
+    }
+  };
+  const syncFromSettings = () => {
+    const snap = settingsScope.getSnapshot();
+    if (snap.status !== "ready") return false;
+    setLinkInterceptor(snap.value?.openLinksInEditor === true);
+    return true;
+  };
   const getSessionCwd = () => {
     const sessions = ctx.get("sessions");
     const snapshot3 = sessions?.list?.getSnapshot?.();
@@ -3573,22 +3793,23 @@ function apply(ctx) {
     if (unloaded) return;
     const remote = ctx.get("remote.fileManager");
     if (remote === void 0) return;
+    if (syncFromSettings()) return;
     void (async () => {
       try {
         const { openLinksInEditor } = unwrap(await remote.getConfig());
-        if (!openLinksInEditor) return;
-        disposeLinkInterceptor = installOpenLinksInterceptor(handlers);
-        ctx.logger?.info?.("[dsh-file] openLinksInEditor: conversation file links open in the editor");
+        setLinkInterceptor(openLinksInEditor);
       } catch (error) {
         ctx.logger?.warn?.(
-          "[dsh-file] could not read getConfig (openLinksInEditor stays off)",
+          "[dsh-file] could not read openLinksInEditor (interceptor stays off)",
           error instanceof Error ? error.message : error
         );
       }
     })();
   });
+  const disposeSettingsSync = settingsScope.subscribe(() => syncFromSettings());
   ctx.effect(() => () => {
     unloaded = true;
+    disposeSettingsSync();
     closePanel();
     if (disposeLinkInterceptor !== null) {
       disposeLinkInterceptor();
@@ -3601,7 +3822,7 @@ function FileToggleButton(props) {
   const { wide, t, onToggle, isOpen } = props;
   const label = t ? t("toggle.label") : "\u6587\u4EF6";
   const title = t ? isOpen() ? t("toggle.close") : t("toggle.open") : void 0;
-  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
     "button",
     {
       type: "button",
@@ -3611,15 +3832,15 @@ function FileToggleButton(props) {
       onClick: onToggle,
       style: isOpen() ? { fontWeight: 700 } : void 0,
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FolderOpenIcon, { size: wide ? 14 : 16 }),
-        wide ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dshf-toggle-label", children: label }) : null
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(FolderOpenIcon, { size: wide ? 14 : 16 }),
+        wide ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "dshf-toggle-label", children: label }) : null
       ]
     }
   );
 }
 function FolderOpenIcon(props) {
   const size = props.size ?? 16;
-  return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("svg", { width: size, height: size, viewBox: "0 0 16 16", fill: "none", "aria-hidden": "true", style: { display: "block" }, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("svg", { width: size, height: size, viewBox: "0 0 16 16", fill: "none", "aria-hidden": "true", style: { display: "block" }, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
     "path",
     {
       d: "M5.19629 1.57104C5.81144 1.5711 6.38623 1.8786 6.72754 2.39038L7.19922 3.09839C7.28454 3.22635 7.42824 3.30344 7.58203 3.30347H12.1699C13.5039 3.30348 14.5859 4.38548 14.5859 5.71948V6.62671C15.2694 7.02689 15.6605 7.85012 15.4385 8.68726L14.3848 12.658C14.1037 13.7164 13.1449 14.4527 12.0498 14.4529H2.91699C1.51651 14.4529 0.451662 13.2814 0.501954 11.9519V3.98706C0.501954 2.65305 1.58396 1.57104 2.91797 1.57104H5.19629ZM3.7793 7.75562C3.30994 7.75562 2.89883 8.07153 2.77832 8.52515L1.91602 11.7722C1.74167 12.4291 2.23734 13.073 2.91699 13.073H12.0498C12.5191 13.0728 12.9304 12.757 13.0508 12.3035L14.1045 8.33374C14.1819 8.04202 13.9619 7.756 13.6602 7.75562H3.7793ZM2.91797 2.9519C2.34625 2.9519 1.88281 3.41534 1.88281 3.98706V7.2937C2.33068 6.7269 3.02249 6.37476 3.7793 6.37476H13.2051V5.71948C13.2051 5.14777 12.7416 4.68434 12.1699 4.68433H7.58203C6.96675 4.6843 6.39209 4.37595 6.05078 3.86401L5.5791 3.15601C5.49379 3.02821 5.34995 2.95196 5.19629 2.9519H2.91797Z",
