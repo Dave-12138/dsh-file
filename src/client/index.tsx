@@ -19,10 +19,11 @@
  * is the bundle's entry, exporting the cordis plugin surface.
  */
 import type { Context } from '@deepseek-ai/cordis';
-import { TYPERT_REMOTE, type FileManagerRemote } from './remote.ts';
+import { TYPERT_REMOTE, unwrap, type FileManagerRemote } from './remote.ts';
 import { FileManagerPanel, type FileManagerSessionHook } from './FileManagerPanel.tsx';
 import { FileEditorView } from './FileEditorView.tsx';
-import { isEditorViewActive, subscribeEditorViewActive } from './store.ts';
+import { isEditorViewActive, subscribeEditorViewActive, openTab, setWorkspaceRoot } from './store.ts';
+import { patchOpenPath } from './openLinks.ts';
 import styles from './styles.css';
 
 // Inject the plugin stylesheet once (the bundle's css is text via esbuild).
@@ -170,9 +171,97 @@ export function apply(ctx: Context) {
     }
   };
 
-  // On unload, close the panel (restores the workspace browser).
+  // ── optional: route conversation file links into this editor ────────────
+  // DSH's file-open affordances — produced chips, inline mentions, tool-call
+  // file rows — all converge on the client service method `workspaces.openPath`
+  // (the chat view's `openFile` leaf). With the config 'openLinksInEditor: true'
+  // (default off), this plugin swaps that method (service-layer substitution,
+  // not DOM interception): the editor gets first refusal, and anything it
+  // cannot handle falls back to the original native opener. On headless /
+  // WSL2 / desktop-less hosts that native open can silently fail (dsh issues
+  // #1286 / #3866), which is why the editor route exists.
+  let disposeOpenPatch: (() => void) | null = null;
+  let unloaded = false;
+
+  const setOpenLinkRoute = (enabled: boolean) => {
+    if (enabled && disposeOpenPatch === null) {
+      disposeOpenPatch = patchOpenPath(
+        ctx.get('workspaces') as { openPath(path: string): Promise<unknown> } | undefined,
+        { tryOpen },
+      );
+      ctx.logger?.info?.('[dsh-file] openLinksInEditor: conversation file links route to the editor');
+    } else if (!enabled && disposeOpenPatch !== null) {
+      disposeOpenPatch();
+      disposeOpenPatch = null;
+    }
+  };
+
+  const getSessionCwd = (): string | undefined => {
+    const sessions = ctx.get('sessions') as
+      | { list?: { getSnapshot?: () => { current?: string; byId?: Record<string, { cwd?: string }> } } }
+      | undefined;
+    const snapshot = sessions?.list?.getSnapshot?.();
+    const current = snapshot?.current;
+    if (current === undefined || current === null) return undefined;
+    return snapshot?.byId?.[current]?.cwd ?? undefined;
+  };
+
+  const tryOpen = async (path: string): Promise<boolean> => {
+    const remote = ctx.get('remote.fileManager') as unknown as FileManagerRemote | undefined;
+    if (remote === undefined) return false;
+    try {
+      // Re-pin the gateway root to the active session's workspace so the host
+      // resolves the (caller-resolved, absolute) path even before the sidebar
+      // panel has mounted.
+      const cwd = getSessionCwd();
+      if (cwd !== undefined) {
+        try { await unwrap(await remote.setRoot(cwd)); } catch { /* keep previous root */ }
+      }
+      const value = unwrap(await remote.readText(path));
+      if (cwd !== undefined) setWorkspaceRoot(cwd); // drop stale tabs from other workspaces
+      openTab({
+        path,
+        content: value.content,
+        savedContent: value.content,
+        mtimeMs: value.mtimeMs,
+        dirty: false,
+      });
+      activateEditorView();
+      openPanel();
+      return true;
+    } catch {
+      return false; // editor cannot show it — the patched openPath falls back
+    }
+  };
+
+  // Read the flag from the host (single source of truth) and, when on, install
+  // the interceptor only after the remote has mounted.
+  void mountRemote.then(() => {
+    if (unloaded) return;
+    const remote = ctx.get('remote.fileManager') as unknown as FileManagerRemote | undefined;
+    if (remote === undefined) return;
+    void (async () => {
+      try {
+        const { openLinksInEditor } = unwrap(await remote.getConfig());
+        setOpenLinkRoute(openLinksInEditor);
+      } catch (error) {
+        ctx.logger?.warn?.(
+          '[dsh-file] could not read openLinksInEditor (interceptor stays off)',
+          error instanceof Error ? error.message : error,
+        );
+      }
+    })();
+  });
+
+  // On unload, close the panel (restores the workspace browser) and detach
+  // the optional link interceptor.
   ctx.effect(() => () => {
+    unloaded = true;
     closePanel();
+    if (disposeOpenPatch !== null) {
+      disposeOpenPatch();
+      disposeOpenPatch = null;
+    }
   }, 'dsh-file: panel cleanup');
 
   // Keep the mount effect referenced so it isn't tree-shaken.

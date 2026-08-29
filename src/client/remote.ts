@@ -58,6 +58,7 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
     direct('stat', ['path']),
     direct('resolve', ['path']),
     direct('getRoot', []),
+    direct('getConfig', []),
     direct('setRoot', ['path']),
   ],
 };
@@ -110,6 +111,8 @@ export interface FileManagerRemote {
   stat(path: string): Promise<RemoteResult<{ path: string; type: 'file' | 'directory' | 'other'; size?: number; mtimeMs?: number }>>;
   resolve(path: string): Promise<RemoteResult<{ path: string }>>;
   getRoot(): Promise<RemoteResult<{ path: string }>>;
+  /** Plugin behavior switches owned by the host (currently `openLinksInEditor`). */
+  getConfig(): Promise<RemoteResult<{ openLinksInEditor: boolean }>>;
   setRoot(path: string): Promise<RemoteResult<{ path: string }>>;
 }
 

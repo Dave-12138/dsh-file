@@ -14,8 +14,15 @@
 # `setRoot` RPC, so the tree always reflects the ACTIVE session's workspace
 # rather than the directory `dsh web` was launched from. Paths outside the
 # currently pinned root are rejected by the host.
+#
+# `openLinksInEditor` (default false) routes conversation file links
+# (produced-files chips and inline file mentions) into this plugin's editor
+# instead of the host's native opener. Keep it off unless you want that
+# behavior; address bugs #1286 / #3866 relate to the native opener failing
+# silently on headless / WSL2 hosts.
 - insert:
     - id: '@rose43/dsh-file'
       name: '@rose43/dsh-file'
       config:
         root: !!js process.cwd()
+        openLinksInEditor: false

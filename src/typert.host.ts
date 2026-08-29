@@ -81,6 +81,7 @@ export const TYPERT = {
     build('stat', ['path']),
     build('resolve', ['path']),
     build('getRoot', []),
+    build('getConfig', []),
     build('setRoot', ['path']),
   ],
   model: { services: [], events: [], objects: [] },

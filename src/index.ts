@@ -94,9 +94,17 @@ export class FileManagerGateway extends TypertRemoteService {
   /** Workspace root served by the gateway; re-pinnable via the setRoot RPC (falls back to config/process.cwd()). */
   private root: string;
 
-  constructor(ctx: Context, config: { root?: string } = {}) {
+  /**
+   * Optional switch: route conversation file links (produced chips / inline
+   * mentions) into this plugin's editor instead of the host's native opener.
+   * Off by default; enable with `openLinksInEditor: true` on the plugin row.
+   */
+  private openLinksInEditor: boolean;
+
+  constructor(ctx: Context, config: { root?: string; openLinksInEditor?: boolean } = {}) {
     super(ctx, 'fileManager');
     this.root = nodePath.resolve(config.root ?? process.cwd());
+    this.openLinksInEditor = config.openLinksInEditor === true;
     // Diagnostics: confirm the gateway is instantiated by the cordis loader.
     console.log(`[dsh-file] FileManagerGateway constructed, root=${this.root}`);
   }
@@ -275,6 +283,19 @@ export class FileManagerGateway extends TypertRemoteService {
   @Remote('getRoot')
   async getRoot(): Promise<{ path: string }> {
     return { path: this.root };
+  }
+
+  /**
+   * Return the gateway's runtime configuration the browser half needs.
+   *
+   * The dynamic client half receives the loader row only at activation time,
+   * so behavior switches are exposed as an RPC the host owns (like getRoot) —
+   * currently just `openLinksInEditor`, which routes conversation file links
+   * into this plugin's editor instead of the host's native opener.
+   */
+  @Remote('getConfig')
+  async getConfig(): Promise<{ openLinksInEditor: boolean }> {
+    return { openLinksInEditor: this.openLinksInEditor };
   }
 
   /**
