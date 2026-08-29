@@ -24,6 +24,7 @@ import { FileManagerPanel, type FileManagerSessionHook } from './FileManagerPane
 import { FileEditorView } from './FileEditorView.tsx';
 import { isEditorViewActive, subscribeEditorViewActive, openTab, setWorkspaceRoot } from './store.ts';
 import { patchOpenPath } from './openLinks.ts';
+import { FileManagerSettingsCard, injectSettingsCardStyle, type FileManagerSettingsScope } from './settingsCard.tsx';
 import styles from './styles.css';
 
 // Inject the plugin stylesheet once (the bundle's css is text via esbuild).
@@ -45,6 +46,21 @@ const zh = {
   'toggle.close': '关闭文件管理器',
   'view.label': '文件',
   'view.empty': '在左侧文件树中选择一个文件，即可在此编辑',
+  'settings.name': '文件管理器（dsh-file）',
+  'settings.desc': '工作区根目录 / 会话文件链接用编辑器打开',
+  'settings.root': '工作区根目录（兜底）',
+  'settings.rootHint': '文件管理器打开时会钉到当前会话的工作区；此处仅在会话未钉定根目录时作为起始目录。',
+  'settings.openLinks': '会话文件链接用编辑器打开',
+  'settings.openLinksHint': '开启后点击会话中的文件链接（产物 / 行内引用）会在此编辑器中打开；编辑器处理不了的文件回退到系统打开。',
+  'settings.overridden': '已覆盖',
+  'settings.reset': '重置',
+  'settings.save': '保存',
+  'settings.saving': '保存中…',
+  'settings.saved': '已保存——立即生效（无需重启）',
+  'settings.failed': '保存失败',
+  'settings.readOnly': '当前设置只读（未挂载可写设置存储）。',
+  'settings.hint': '保存即热生效：宿主监听 dsh-file 设置即时应用（无需重启）；文件管理器打开文件时会自动钉到当前会话工作区，覆盖此处兜底根目录。',
+  'settings.unavailable': '设置服务暂不可用——展示说明，待可用后再编辑。',
 };
 
 const en: Record<keyof typeof zh, string> = {
@@ -53,10 +69,25 @@ const en: Record<keyof typeof zh, string> = {
   'toggle.close': 'Close file manager',
   'view.label': 'Files',
   'view.empty': 'Select a file in the sidebar tree to edit it here',
+  'settings.name': 'File manager (dsh-file)',
+  'settings.desc': 'Workspace root / conversation file links open in the editor',
+  'settings.root': 'Workspace root (fallback)',
+  'settings.rootHint': 'The manager pins to the active session workspace when opened; this root is only used until a session pins one.',
+  'settings.openLinks': 'Open conversation file links in the editor',
+  'settings.openLinksHint': 'When enabled, clicking conversation file links (produced files / inline mentions) opens them in this editor; files it cannot handle fall back to the system opener.',
+  'settings.overridden': 'Overridden',
+  'settings.reset': 'Reset',
+  'settings.save': 'Save',
+  'settings.saving': 'Saving...',
+  'settings.saved': 'Saved — applies immediately (no restart)',
+  'settings.failed': 'Save failed',
+  'settings.readOnly': 'Settings are read-only (no writable settings storage mounted).',
+  'settings.hint': 'Saving is hot: the host watches the dsh-file namespace and applies it immediately (no restart); opening a file pins the manager to the active session workspace, overriding this fallback root.',
+  'settings.unavailable': 'Settings service unavailable — showing the description; edit again when it becomes available.',
 };
 
 /** Required client services. */
-export const inject = ['slots', 'locale', 'remote'];
+export const inject = ['slots', 'locale', 'remote', 'settingsScope'];
 
 /**
  * Client plugin body: mount the remote, register the footer button, the
@@ -65,6 +96,28 @@ export const inject = ['slots', 'locale', 'remote'];
 export function apply(ctx: Context) {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-file: dictionaries');
   const t = ctx.locale.bind(NS);
+
+  // Card stylesheet (mcp-manager-style accordion card), injected once.
+  injectSettingsCardStyle();
+
+  // Settings namespace `dsh-file`: the host registers it; this client binds the
+  // scope to read/watch (hot) and feeds the 设置 → 插件 card below.
+  const SETTINGS_NS = 'dsh-file';
+  const settingsScope = (ctx as unknown as {
+    settingsScope: { bind(spec: { namespace: string }): FileManagerSettingsScope };
+  }).settingsScope.bind({ namespace: SETTINGS_NS });
+
+  // No new navigation tab: the card mounts inside the existing Plugins
+  // settings tab (`settings.plugin.item`, keyed by namespace), next to the
+  // built-in Bash / Agent-loop / Web-search cards.
+  ctx.slots.inject('settings.plugin.item', () =>
+    ctx.slots.register({
+      name: 'settings.plugin.item',
+      key: SETTINGS_NS,
+      locale: NS,
+      inject: () => ({ scope: settingsScope }),
+    }, FileManagerSettingsCard),
+  );
 
   // Mount the remote contribution (async; $mount installs namespace services).
   const mountRemote = ctx.effect(async () => {
@@ -196,6 +249,13 @@ export function apply(ctx: Context) {
     }
   };
 
+  const syncFromSettings = (): boolean => {
+    const snap = settingsScope.getSnapshot();
+    if (snap.status !== 'ready') return false;
+    setOpenLinkRoute(snap.value?.openLinksInEditor === true);
+    return true;
+  };
+
   const getSessionCwd = (): string | undefined => {
     const sessions = ctx.get('sessions') as
       | { list?: { getSnapshot?: () => { current?: string; byId?: Record<string, { cwd?: string }> } } }
@@ -240,6 +300,9 @@ export function apply(ctx: Context) {
     if (unloaded) return;
     const remote = ctx.get('remote.fileManager') as unknown as FileManagerRemote | undefined;
     if (remote === undefined) return;
+    // Prefer the settings namespace (hot); fall back to the host getConfig RPC
+    // when this client sees no settings surface.
+    if (syncFromSettings()) return;
     void (async () => {
       try {
         const { openLinksInEditor } = unwrap(await remote.getConfig());
@@ -253,10 +316,15 @@ export function apply(ctx: Context) {
     })();
   });
 
+  // Live: settings saved from the card (or edited elsewhere) toggle the
+  // interceptor immediately, without a restart.
+  const disposeSettingsSync = settingsScope.subscribe(() => syncFromSettings());
+
   // On unload, close the panel (restores the workspace browser) and detach
   // the optional link interceptor.
   ctx.effect(() => () => {
     unloaded = true;
+    disposeSettingsSync();
     closePanel();
     if (disposeOpenPatch !== null) {
       disposeOpenPatch();
