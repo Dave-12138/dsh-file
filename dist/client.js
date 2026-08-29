@@ -2625,258 +2625,222 @@ function languageOf(path) {
 }
 
 // src/client/openLinks.ts
-var OPEN_LABEL_RE = /^(?:打开|Open)\s/;
-var DOUBLE_BACKSLASH = String.fromCharCode(92, 92);
-function hasAncestorFlag(node, attr) {
-  let current3 = node;
-  while (current3 !== null) {
-    const value = current3.getAttribute(attr);
-    if (value !== null && value !== "false" && value !== "") return true;
-    current3 = current3.parent;
-  }
-  return false;
-}
-function isHidden(node) {
-  let current3 = node;
-  while (current3 !== null) {
-    if (current3.getAttribute("aria-hidden") === "true") return true;
-    current3 = current3.parent;
-  }
-  return false;
-}
-function findOpenableLink(node) {
-  let current3 = node;
-  while (current3 !== null) {
-    if (current3.tag === "button") {
-      const title = current3.getAttribute("title");
-      if (title === null || title.trim() === "") return null;
-      const label = current3.getAttribute("aria-label") ?? "";
-      const inRow = hasAncestorFlag(current3, "data-produced-files-row");
-      if (inRow || OPEN_LABEL_RE.test(label)) {
-        if (isHidden(current3)) return null;
-        return title;
-      }
-      return null;
+function patchOpenPath(workspaces, handlers) {
+  if (workspaces === void 0 || typeof workspaces.openPath !== "function") return () => {
+  };
+  const original = workspaces.openPath.bind(workspaces);
+  let active = true;
+  workspaces.openPath = async (path) => {
+    if (!active) return original(path);
+    try {
+      const handled = await handlers.tryOpen(path);
+      if (!handled) return original(path);
+      return;
+    } catch {
+      return original(path);
     }
-    current3 = current3.parent;
-  }
-  return null;
-}
-function stripTrailingSlashes(value) {
-  let end = value.length;
-  while (end > 0 && (value.charCodeAt(end - 1) === 47 || value.charCodeAt(end - 1) === 92)) end -= 1;
-  return value.slice(0, end);
-}
-function stripLeadingSlashes(value) {
-  let start = 0;
-  while (start < value.length && (value.charCodeAt(start) === 47 || value.charCodeAt(start) === 92)) start += 1;
-  return value.slice(start);
-}
-function resolveWorkspacePath(cwd, path) {
-  const winDrive = path.length >= 3 && path.charCodeAt(1) === 58 && // ':'
-  (path[2] === "/" || path.charCodeAt(2) === 92) && // '/' or '\'
-  /^[A-Za-z]$/.test(path.charAt(0));
-  if (path.startsWith("/") || winDrive || path.startsWith(DOUBLE_BACKSLASH)) return path;
-  if (cwd === void 0 || cwd === "") return path;
-  return `${stripTrailingSlashes(cwd)}/${stripLeadingSlashes(path)}`;
-}
-function domNodeOf(element) {
-  const parent = element.parentElement;
-  return {
-    tag: (element.tagName ?? "").toLowerCase() || null,
-    getAttribute: (name) => element.getAttribute(name),
-    parent: parent === null ? null : domNodeOf(parent)
   };
-}
-function installOpenLinksInterceptor(handlers) {
-  if (typeof document === "undefined") return () => {
+  return () => {
+    active = false;
+    workspaces.openPath = original;
   };
-  const onCapture = (event) => {
-    if (event.button !== 0) return;
-    const target = event.target instanceof Element ? event.target : null;
-    if (target === null) return;
-    const path = findOpenableLink(domNodeOf(target));
-    if (path === null) return;
-    event.preventDefault();
-    event.stopPropagation();
-    void (async () => {
-      try {
-        const handled = await handlers.openInEditor(path);
-        if (handled) return;
-        const abs = resolveWorkspacePath(handlers.getCwd(), path);
-        await handlers.openNative(abs);
-      } catch (error) {
-        handlers.onFail?.(path, error);
-      }
-    })();
-  };
-  document.addEventListener("click", onCapture, true);
-  return () => document.removeEventListener("click", onCapture, true);
 }
 
 // src/client/settingsCard.tsx
 var import_react7 = require("react");
 var import_jsx_runtime4 = require("react/jsx-runtime");
-var CLEAR = Symbol("clear");
+var SETTINGS_CARD_CSS = `
+.df-set-card{list-style:none;margin:0;padding:0;border:1px solid var(--dsw-alias-border-l2,#e2e5ea);border-radius:12px;background:var(--dsw-alias-bg-layer-3,#fbfbfc);overflow:hidden;transition:border-color .16s,background .16s}
+.df-set-card:hover{border-color:var(--dsw-alias-label-dimmed,#9ba1a6)}
+.df-set-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:transparent;border:none;cursor:pointer;text-align:left;color:var(--dsw-alias-label-primary,#1f2329)}
+.df-set-head:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.04))}
+.df-set-headText{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.df-set-name{display:block;font-size:15px;font-weight:600;line-height:1.4;color:var(--dsw-alias-label-primary,#1f2329)}
+.df-set-description{display:block;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-tertiary,#8a919c)}
+.df-set-chevron{flex:none;color:var(--dsw-alias-label-tertiary,#5f6672);transition:transform .16s ease}
+.df-set-chevronOpen{transform:rotate(180deg)}
+.df-set-body{padding:4px 14px 14px;border-top:1px solid var(--dsw-alias-border-l1,#e2e5ea);display:flex;flex-direction:column;gap:9px}
+.df-set-row{display:flex;align-items:center;gap:12px;margin:0;flex-wrap:wrap}
+.df-set-row>label{font-size:12.5px;color:var(--dsw-alias-label-secondary,#5f6672);font-weight:600;white-space:nowrap}
+.df-set-check{align-items:center;gap:8px}
+.df-set-row input[type=checkbox]{width:auto;height:16px;accent-color:var(--dsw-alias-brand-primary,#4f6ef7);cursor:pointer}
+.df-set-input{min-width:88px;flex:0 1 460px;padding:5px 8px;border:1px solid var(--dsw-alias-border-l1,#e2e5ea);border-radius:6px;font-size:12.5px;color:var(--dsw-alias-label-primary,#1f2329);background:var(--dsw-alias-bg-layer-1,#fff);box-sizing:border-box}
+.df-set-input:focus{outline:none;border-color:var(--dsw-alias-state-info-primary,#3b82f6)}
+.df-set-badge{font-size:10px;padding:1px 7px;border-radius:99px;background:var(--dsw-alias-bg-layer-2,#f1f2f5);color:var(--dsw-alias-label-secondary,#525866);border:1px solid var(--dsw-alias-border-l2,#e2e4ea)}
+.df-set-reset{font:inherit;font-size:11px;color:var(--dsw-alias-label-tertiary,#8a919c);cursor:pointer;background:none;border:none;padding:0;text-decoration:underline}
+.df-set-hint{margin-top:0;font-size:11px;color:var(--dsw-alias-label-tertiary,#8a919c);line-height:1.5}
+.df-set-foot{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:10px}
+.df-set-foot .df-set-saved{font-size:12px;color:var(--dsw-alias-state-success-primary,#16a34a)}
+.df-set-foot .df-set-error{font-size:12px;color:var(--dsw-alias-state-danger-primary,#dc2626)}
+.df-set-save{border:1px solid var(--dsw-alias-border-l1,#e2e5ea);background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#3a3f4b);border-radius:6px;padding:5px 14px;font-size:12px;cursor:pointer}
+.df-set-save:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06))}
+.df-set-save:disabled{opacity:.5;cursor:not-allowed}
+`;
+function injectSettingsCardStyle() {
+  if (typeof document === "undefined") return;
+  if (document.querySelector("style[data-dsh-file-settings-style]") !== null) return;
+  const style = document.createElement("style");
+  style.dataset.dshFileSettingsStyle = "";
+  style.textContent = SETTINGS_CARD_CSS;
+  document.head.appendChild(style);
+}
+var rootDefaultOf = (v2) => typeof v2 === "string" ? v2 : "";
 var FIELDS = [
-  { key: "root", type: "text", labelKey: "settings.root", hintKey: "settings.rootHint" },
-  { key: "openLinksInEditor", type: "bool", labelKey: "settings.openLinks", hintKey: "settings.openLinksHint" }
+  { key: "root", type: "text" },
+  { key: "openLinksInEditor", type: "bool" }
 ];
-var sCard = {
-  pending: { whiteSpace: "nowrap", background: "var(--dsw-alias-bg-module-platform)", color: "var(--dsw-alias-label-secondary)", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 500, lineHeight: "17px" },
-  readOnly: { color: "var(--dsw-alias-label-tertiary)", margin: "12px 0 0", fontSize: 12, lineHeight: 1.5 },
-  field: { flexDirection: "column", gap: 6, padding: "12px 0", display: "flex" },
-  fieldBorder: { borderTop: "1px solid var(--dsw-alias-border-l2)" },
-  labelRow: { alignItems: "center", gap: 8, display: "flex" },
-  label: { minWidth: 0, color: "var(--dsw-alias-label-primary)", flex: 1, fontSize: 13, fontWeight: 500, lineHeight: "20px" },
-  badge: { background: "var(--dsw-alias-bg-module-platform)", color: "var(--dsw-alias-label-secondary)", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 500, lineHeight: "17px" },
-  reset: { font: "inherit", color: "var(--dsw-alias-label-secondary)", cursor: "pointer", background: "none", border: "none", padding: 0, textDecoration: "underline" },
-  hint: { color: "var(--dsw-alias-label-tertiary)", margin: 0, fontSize: 12, lineHeight: 1.5 },
-  input: { border: "1px solid var(--dsw-alias-border-l2)", background: "var(--dsw-specific-input-major)", height: 34, borderRadius: 6, padding: "0 10px", color: "var(--dsw-alias-label-primary)", font: "inherit", fontSize: 13, width: "100%", boxSizing: "border-box", outline: "none" },
-  boolRow: { alignItems: "center", gap: 12, minHeight: 34, display: "flex" },
-  boolInput: { blockSize: 18, inlineSize: 34, accentColor: "var(--dsw-alias-brand-primary)", cursor: "pointer", flex: "none" },
-  discard: { appearance: "none", font: "inherit", cursor: "pointer", border: "1px solid var(--dsw-alias-border-l2)", background: "transparent", borderRadius: 8, padding: "5px 12px", fontSize: 12, color: "var(--dsw-alias-label-secondary)" },
-  save: { appearance: "none", font: "inherit", cursor: "pointer", border: "1px solid transparent", borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 500, color: "#fff", background: "var(--dsw-alias-brand-primary)" },
-  disabled: { opacity: 0.4, cursor: "default" },
-  failed: { whiteSpace: "nowrap", color: "var(--dsw-alias-label-error)", fontSize: 12, lineHeight: 1.5 }
-};
-var draftText = (d, current3) => {
-  if (d === void 0) return current3 === void 0 || current3 === null ? "" : String(current3);
-  if (d === CLEAR) return "";
-  return String(d);
-};
-var draftBool = (d, current3) => {
-  if (d === void 0 || d === CLEAR) return !!current3;
-  return !!d;
-};
 function FileManagerSettingsCard(props) {
   const { scope, t } = props;
   const [snap, setSnap] = (0, import_react7.useState)(() => scope?.getSnapshot());
-  const [drafts, setDrafts] = (0, import_react7.useState)({});
+  const [open, setOpen] = (0, import_react7.useState)(false);
   const [saving, setSaving] = (0, import_react7.useState)(false);
-  const [failed2, setFailed] = (0, import_react7.useState)(false);
+  const [msg, setMsg] = (0, import_react7.useState)(null);
+  const [edits, setEdits] = (0, import_react7.useState)({});
   (0, import_react7.useEffect)(() => {
     if (!scope) return;
     return scope.subscribe(() => setSnap(scope.getSnapshot()));
   }, [scope]);
-  if (!scope || !snap || snap.status !== "ready") return null;
-  const value = snap.value ?? {};
-  const user = snap.user ?? {};
-  const writable = !!snap.writable;
-  const dirty = Object.keys(drafts).length > 0;
   const text = (key, fallback) => {
     const v2 = t ? t(key) : "";
     return v2 === "" || v2 === key ? fallback : v2;
   };
+  const ready = scope !== void 0 && snap !== void 0 && snap.status === "ready";
+  const value = ready ? snap?.value ?? {} : {};
+  const base = ready && snap?.base ? snap.base : {};
+  const user = ready ? snap?.user ?? {} : {};
+  const writable = ready && !!snap?.writable;
+  const cur = (key, type) => {
+    if (key in edits) return edits[key];
+    const v2 = value[key];
+    if (type === "bool") return v2 === true;
+    return rootDefaultOf(v2);
+  };
   const stage = (key, val) => {
-    setDrafts((d) => ({ ...d, [key]: val }));
-    setFailed(false);
+    setEdits((e) => ({ ...e, [key]: val }));
+    setMsg(null);
   };
   const save = async () => {
-    const ops = [];
-    for (const f2 of FIELDS) {
-      const d = drafts[f2.key];
-      if (d === void 0) continue;
-      if (d === CLEAR) {
-        if (user[f2.key] !== void 0) ops.push({ key: f2.key, clear: true });
-        continue;
-      }
-      if (f2.type === "bool") {
-        if (d !== !!value[f2.key]) ops.push({ key: f2.key, value: !!d });
-      } else {
-        const raw = String(d).trim();
-        if (raw === "") {
-          if (user[f2.key] !== void 0) ops.push({ key: f2.key, clear: true });
-        } else if (raw !== (value[f2.key] ?? "")) {
-          ops.push({ key: f2.key, value: raw });
+    if (!scope) return;
+    setSaving(true);
+    setMsg(null);
+    try {
+      for (const f2 of FIELDS) {
+        if (!(f2.key in edits)) continue;
+        const edited = edits[f2.key];
+        const baseV = base[f2.key];
+        if (f2.type === "bool") {
+          if (edited === (baseV === true)) {
+            if (user[f2.key] !== void 0) await scope.unset(f2.key);
+          } else {
+            await scope.set(f2.key, edited);
+          }
+        } else {
+          const s = rootDefaultOf(edited).trim();
+          if (s === "" || s === rootDefaultOf(baseV).trim()) {
+            if (user[f2.key] !== void 0) await scope.unset(f2.key);
+          } else {
+            await scope.set(f2.key, s);
+          }
         }
       }
+      setEdits({});
+      setMsg({ ok: true, text: text("settings.saved", "\u5DF2\u4FDD\u5B58\u2014\u2014\u7ACB\u5373\u751F\u6548\uFF08\u65E0\u9700\u91CD\u542F\uFF09") });
+      setTimeout(() => setMsg(null), 2400);
+    } catch (error) {
+      setMsg({
+        ok: false,
+        text: `${text("settings.failed", "\u4FDD\u5B58\u5931\u8D25")}\uFF1A${error instanceof Error ? error.message : String(error)}`
+      });
     }
-    if (ops.length === 0) {
-      setDrafts({});
-      return;
-    }
-    setSaving(true);
-    setFailed(false);
-    try {
-      for (const op of ops) {
-        if (op.clear) await scope.unset(op.key);
-        else await scope.set(op.key, op.value);
-      }
-      setDrafts({});
-    } catch {
-      setFailed(true);
-    } finally {
-      setSaving(false);
-    }
+    setSaving(false);
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { padding: "16px 16px 20px" }, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("h4", { style: { margin: 0, fontSize: 14, fontWeight: 600, color: "var(--dsw-alias-label-primary)", flex: 1 }, children: text("settings.title", "\u6587\u4EF6\u7BA1\u7406\u5668\u8BBE\u7F6E") }),
-      dirty ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: sCard.pending, children: text("settings.pending", "\u6709\u672A\u4FDD\u5B58\u4FEE\u6539") }) : null,
-      failed2 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: sCard.failed, children: text("settings.failed", "\u4FDD\u5B58\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5") }) : null,
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { display: "flex", gap: 8 }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
-          "button",
-          {
-            type: "button",
-            style: { ...sCard.discard, ...!dirty || saving ? sCard.disabled : {} },
-            disabled: !dirty || saving,
-            onClick: () => setDrafts({}),
-            children: text("settings.discard", "\u653E\u5F03\u4FEE\u6539")
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
-          "button",
-          {
-            type: "button",
-            style: { ...sCard.save, ...!dirty || saving || !writable ? sCard.disabled : {} },
-            disabled: !dirty || saving || !writable,
-            onClick: () => void save(),
-            children: saving ? text("settings.saving", "\u4FDD\u5B58\u4E2D\u2026") : text("settings.save", "\u4FDD\u5B58")
-          }
-        )
-      ] })
-    ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: { color: "var(--dsw-alias-label-tertiary)", margin: "6px 0 0", fontSize: 12, lineHeight: 1.5 }, children: text("settings.desc", "\u5DE5\u4F5C\u533A\u6839\u76EE\u5F55\u4E0E\u4F1A\u8BDD\u6587\u4EF6\u94FE\u63A5\u884C\u4E3A\uFF1B\u4FDD\u5B58\u540E\u7ACB\u5373\u751F\u6548") }),
-    writable ? null : /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: sCard.readOnly, children: text("settings.readOnly", "\u5F53\u524D\u8BBE\u7F6E\u53EA\u8BFB\uFF08\u672A\u6302\u8F7D\u53EF\u5199\u8BBE\u7F6E\u5B58\u50A8\uFF09\u3002") }),
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { children: FIELDS.map((f2, i) => {
-      const draft = drafts[f2.key];
-      const overridden = user[f2.key] !== void 0 && draft !== CLEAR;
-      const isClear = draft === CLEAR;
-      return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { ...sCard.field, ...i > 0 ? sCard.fieldBorder : {} }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: sCard.labelRow, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("label", { style: sCard.label, htmlFor: `dsh-file-${f2.key}`, children: text(f2.labelKey, f2.labelKey) }),
-          overridden ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: sCard.badge, children: text("settings.overridden", "\u5DF2\u8986\u76D6") }) : null,
-          user[f2.key] !== void 0 && !isClear ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", style: sCard.reset, onClick: () => stage(f2.key, CLEAR), children: text("settings.reset", "\u91CD\u7F6E") }) : null
-        ] }),
-        f2.type === "bool" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: sCard.boolRow, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { ...sCard.hint, flex: 1 }, children: text(f2.hintKey, "") }),
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("li", { className: "df-set-card", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+      "button",
+      {
+        type: "button",
+        className: "df-set-head",
+        "aria-expanded": open,
+        onClick: () => setOpen(!open),
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "df-set-headText", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "df-set-name", children: text("settings.name", "\u6587\u4EF6\u7BA1\u7406\u5668\uFF08dsh-file\uFF09") }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "df-set-description", children: text("settings.desc", "\u5DE5\u4F5C\u533A\u6839\u76EE\u5F55 / \u4F1A\u8BDD\u6587\u4EF6\u94FE\u63A5\u7528\u7F16\u8F91\u5668\u6253\u5F00") })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            "svg",
+            {
+              className: "df-set-chevron" + (open ? " df-set-chevronOpen" : ""),
+              width: 14,
+              height: 14,
+              viewBox: "0 0 14 14",
+              fill: "none",
+              xmlns: "http://www.w3.org/2000/svg",
+              "aria-hidden": "true",
+              children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+                "path",
+                {
+                  d: "M11.8486 5.5L11.4238 5.92383L8.69727 8.65137C8.44157 8.90706 8.21562 9.13382 8.01172 9.29785C7.79912 9.46883 7.55595 9.61756 7.25 9.66602C7.08435 9.69222 6.91565 9.69222 6.75 9.66602C6.44405 9.61756 6.20088 9.46883 5.98828 9.29785C5.78438 9.13382 5.55843 8.90706 5.30273 8.65137L2.57617 5.92383L2.15137 5.5L3 4.65137L3.42383 5.07617L6.15137 7.80273C6.42595 8.07732 6.59876 8.24849 6.74023 8.3623C6.87291 8.46904 6.92272 8.47813 6.9375 8.48047C6.97895 8.48703 7.02105 8.48703 7.0625 8.48047C7.07728 8.47813 7.12709 8.46904 7.25977 8.3623C7.40124 8.24849 7.57405 8.07732 7.84863 7.80273L10.5762 5.07617L11 4.65137L11.8486 5.5Z",
+                  fill: "currentColor"
+                }
+              )
+            }
+          )
+        ]
+      }
+    ),
+    open ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "df-set-body", children: [
+      ready && !writable ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { className: "df-set-hint", style: { color: "var(--dsw-alias-state-warn-primary,#b45309)" }, children: text("settings.readOnly", "\u5F53\u524D\u8BBE\u7F6E\u53EA\u8BFB\uFF08\u672A\u6302\u8F7D\u53EF\u5199\u8BBE\u7F6E\u5B58\u50A8\uFF09\u3002") }) : null,
+      ready ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "df-set-row", style: { alignItems: "center" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("label", { htmlFor: "dsh-file-root", children: text("settings.root", "\u5DE5\u4F5C\u533A\u6839\u76EE\u5F55\uFF08\u515C\u5E95\uFF09") }),
+          user.root !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "df-set-badge", children: text("settings.overridden", "\u5DF2\u8986\u76D6") }) : null,
+          user.root !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "df-set-reset", onClick: () => stage("root", typeof base.root === "string" ? base.root : ""), children: text("settings.reset", "\u91CD\u7F6E") }) : null,
           /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
             "input",
             {
-              id: `dsh-file-${f2.key}`,
-              type: "checkbox",
-              style: sCard.boolInput,
-              checked: draftBool(draft, value[f2.key]),
+              id: "dsh-file-root",
+              type: "text",
+              className: "df-set-input",
+              value: cur("root", "text"),
               disabled: !writable || saving,
-              onChange: (e) => stage(f2.key, e.target.checked)
+              onChange: (e) => stage("root", e.target.value),
+              placeholder: rootDefaultOf(base.root)
             }
           )
-        ] }) : /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
-          "input",
-          {
-            id: `dsh-file-${f2.key}`,
-            type: "text",
-            style: sCard.input,
-            value: draftText(draft, value[f2.key]),
-            disabled: !writable || saving,
-            onChange: (e) => stage(f2.key, e.target.value)
-          }
-        ),
-        f2.type === "text" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: sCard.hint, children: text(f2.hintKey, "") }) : null
-      ] }, f2.key);
-    }) })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "df-set-row df-set-check", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("label", { htmlFor: "dsh-file-openLinks", children: text("settings.openLinks", "\u4F1A\u8BDD\u6587\u4EF6\u94FE\u63A5\u7528\u7F16\u8F91\u5668\u6253\u5F00") }),
+          user.openLinksInEditor !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "df-set-badge", children: text("settings.overridden", "\u5DF2\u8986\u76D6") }) : null,
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            "input",
+            {
+              id: "dsh-file-openLinks",
+              type: "checkbox",
+              checked: cur("openLinksInEditor", "bool"),
+              disabled: !writable || saving,
+              onChange: (e) => stage("openLinksInEditor", e.target.checked)
+            }
+          )
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { className: "df-set-hint", children: text("settings.hint", "\u4FDD\u5B58\u5373\u70ED\u751F\u6548\uFF1A\u5BBF\u4E3B\u76D1\u542C dsh-file \u8BBE\u7F6E\u5373\u65F6\u5E94\u7528\uFF08\u65E0\u9700\u91CD\u542F\uFF09\uFF1B\u6587\u4EF6\u7BA1\u7406\u5668\u6253\u5F00\u6587\u4EF6\u65F6\u4F1A\u81EA\u52A8\u9489\u5230\u5F53\u524D\u4F1A\u8BDD\u5DE5\u4F5C\u533A\uFF0C\u8986\u76D6\u6B64\u5904\u515C\u5E95\u6839\u76EE\u5F55\u3002") }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "df-set-foot", children: [
+          msg !== null ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: msg.ok ? "df-set-saved" : "df-set-error", children: msg.text }) : null,
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "df-set-save",
+              disabled: !writable || saving || Object.keys(edits).length === 0,
+              onClick: () => {
+                void save();
+              },
+              children: saving ? text("settings.saving", "\u4FDD\u5B58\u4E2D\u2026") : text("settings.save", "\u4FDD\u5B58")
+            }
+          )
+        ] })
+      ] }) : /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { className: "df-set-hint", children: text("settings.unavailable", "\u8BBE\u7F6E\u670D\u52A1\u6682\u4E0D\u53EF\u7528\u2014\u2014\u5C55\u793A\u8BF4\u660E\uFF0C\u5F85\u53EF\u7528\u540E\u518D\u7F16\u8F91\u3002") })
+    ] }) : null
   ] });
 }
 
@@ -3606,20 +3570,21 @@ var zh = {
   "toggle.close": "\u5173\u95ED\u6587\u4EF6\u7BA1\u7406\u5668",
   "view.label": "\u6587\u4EF6",
   "view.empty": "\u5728\u5DE6\u4FA7\u6587\u4EF6\u6811\u4E2D\u9009\u62E9\u4E00\u4E2A\u6587\u4EF6\uFF0C\u5373\u53EF\u5728\u6B64\u7F16\u8F91",
-  "settings.title": "\u6587\u4EF6\u7BA1\u7406\u5668\u8BBE\u7F6E",
-  "settings.desc": "\u5DE5\u4F5C\u533A\u6839\u76EE\u5F55\u4E0E\u4F1A\u8BDD\u6587\u4EF6\u94FE\u63A5\u884C\u4E3A\uFF1B\u4FDD\u5B58\u540E\u7ACB\u5373\u751F\u6548",
+  "settings.name": "\u6587\u4EF6\u7BA1\u7406\u5668\uFF08dsh-file\uFF09",
+  "settings.desc": "\u5DE5\u4F5C\u533A\u6839\u76EE\u5F55 / \u4F1A\u8BDD\u6587\u4EF6\u94FE\u63A5\u7528\u7F16\u8F91\u5668\u6253\u5F00",
   "settings.root": "\u5DE5\u4F5C\u533A\u6839\u76EE\u5F55\uFF08\u515C\u5E95\uFF09",
   "settings.rootHint": "\u6587\u4EF6\u7BA1\u7406\u5668\u6253\u5F00\u65F6\u4F1A\u9489\u5230\u5F53\u524D\u4F1A\u8BDD\u7684\u5DE5\u4F5C\u533A\uFF1B\u6B64\u5904\u4EC5\u5728\u4F1A\u8BDD\u672A\u9489\u5B9A\u6839\u76EE\u5F55\u65F6\u4F5C\u4E3A\u8D77\u59CB\u76EE\u5F55\u3002",
   "settings.openLinks": "\u4F1A\u8BDD\u6587\u4EF6\u94FE\u63A5\u7528\u7F16\u8F91\u5668\u6253\u5F00",
   "settings.openLinksHint": "\u5F00\u542F\u540E\u70B9\u51FB\u4F1A\u8BDD\u4E2D\u7684\u6587\u4EF6\u94FE\u63A5\uFF08\u4EA7\u7269 / \u884C\u5185\u5F15\u7528\uFF09\u4F1A\u5728\u6B64\u7F16\u8F91\u5668\u4E2D\u6253\u5F00\uFF1B\u7F16\u8F91\u5668\u5904\u7406\u4E0D\u4E86\u7684\u6587\u4EF6\u56DE\u9000\u5230\u7CFB\u7EDF\u6253\u5F00\u3002",
   "settings.overridden": "\u5DF2\u8986\u76D6",
   "settings.reset": "\u91CD\u7F6E",
-  "settings.discard": "\u653E\u5F03\u4FEE\u6539",
   "settings.save": "\u4FDD\u5B58",
   "settings.saving": "\u4FDD\u5B58\u4E2D\u2026",
-  "settings.pending": "\u6709\u672A\u4FDD\u5B58\u4FEE\u6539",
-  "settings.failed": "\u4FDD\u5B58\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5",
-  "settings.readOnly": "\u5F53\u524D\u8BBE\u7F6E\u53EA\u8BFB\uFF08\u672A\u6302\u8F7D\u53EF\u5199\u8BBE\u7F6E\u5B58\u50A8\uFF09\u3002"
+  "settings.saved": "\u5DF2\u4FDD\u5B58\u2014\u2014\u7ACB\u5373\u751F\u6548\uFF08\u65E0\u9700\u91CD\u542F\uFF09",
+  "settings.failed": "\u4FDD\u5B58\u5931\u8D25",
+  "settings.readOnly": "\u5F53\u524D\u8BBE\u7F6E\u53EA\u8BFB\uFF08\u672A\u6302\u8F7D\u53EF\u5199\u8BBE\u7F6E\u5B58\u50A8\uFF09\u3002",
+  "settings.hint": "\u4FDD\u5B58\u5373\u70ED\u751F\u6548\uFF1A\u5BBF\u4E3B\u76D1\u542C dsh-file \u8BBE\u7F6E\u5373\u65F6\u5E94\u7528\uFF08\u65E0\u9700\u91CD\u542F\uFF09\uFF1B\u6587\u4EF6\u7BA1\u7406\u5668\u6253\u5F00\u6587\u4EF6\u65F6\u4F1A\u81EA\u52A8\u9489\u5230\u5F53\u524D\u4F1A\u8BDD\u5DE5\u4F5C\u533A\uFF0C\u8986\u76D6\u6B64\u5904\u515C\u5E95\u6839\u76EE\u5F55\u3002",
+  "settings.unavailable": "\u8BBE\u7F6E\u670D\u52A1\u6682\u4E0D\u53EF\u7528\u2014\u2014\u5C55\u793A\u8BF4\u660E\uFF0C\u5F85\u53EF\u7528\u540E\u518D\u7F16\u8F91\u3002"
 };
 var en = {
   "toggle.label": "Files",
@@ -3627,25 +3592,27 @@ var en = {
   "toggle.close": "Close file manager",
   "view.label": "Files",
   "view.empty": "Select a file in the sidebar tree to edit it here",
-  "settings.title": "File manager settings",
-  "settings.desc": "Workspace root and conversation file-link behavior; applies immediately on save",
+  "settings.name": "File manager (dsh-file)",
+  "settings.desc": "Workspace root / conversation file links open in the editor",
   "settings.root": "Workspace root (fallback)",
   "settings.rootHint": "The manager pins to the active session workspace when opened; this root is only used until a session pins one.",
   "settings.openLinks": "Open conversation file links in the editor",
   "settings.openLinksHint": "When enabled, clicking conversation file links (produced files / inline mentions) opens them in this editor; files it cannot handle fall back to the system opener.",
   "settings.overridden": "Overridden",
   "settings.reset": "Reset",
-  "settings.discard": "Discard changes",
   "settings.save": "Save",
   "settings.saving": "Saving...",
-  "settings.pending": "Unsaved changes",
-  "settings.failed": "Save failed, retry",
-  "settings.readOnly": "Settings are read-only (no writable settings storage mounted)."
+  "settings.saved": "Saved \u2014 applies immediately (no restart)",
+  "settings.failed": "Save failed",
+  "settings.readOnly": "Settings are read-only (no writable settings storage mounted).",
+  "settings.hint": "Saving is hot: the host watches the dsh-file namespace and applies it immediately (no restart); opening a file pins the manager to the active session workspace, overriding this fallback root.",
+  "settings.unavailable": "Settings service unavailable \u2014 showing the description; edit again when it becomes available."
 };
 var inject = ["slots", "locale", "remote", "settingsScope"];
 function apply(ctx) {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), "dsh-file: dictionaries");
   const t = ctx.locale.bind(NS);
+  injectSettingsCardStyle();
   const SETTINGS_NS = "dsh-file";
   const settingsScope = ctx.settingsScope.bind({ namespace: SETTINGS_NS });
   ctx.slots.inject(
@@ -3721,21 +3688,24 @@ function apply(ctx) {
       }
     }
   };
-  let disposeLinkInterceptor = null;
+  let disposeOpenPatch = null;
   let unloaded = false;
-  const setLinkInterceptor = (enabled) => {
-    if (enabled && disposeLinkInterceptor === null) {
-      disposeLinkInterceptor = installOpenLinksInterceptor(handlers);
-      ctx.logger?.info?.("[dsh-file] openLinksInEditor: conversation file links open in the editor");
-    } else if (!enabled && disposeLinkInterceptor !== null) {
-      disposeLinkInterceptor();
-      disposeLinkInterceptor = null;
+  const setOpenLinkRoute = (enabled) => {
+    if (enabled && disposeOpenPatch === null) {
+      disposeOpenPatch = patchOpenPath(
+        ctx.get("workspaces"),
+        { tryOpen }
+      );
+      ctx.logger?.info?.("[dsh-file] openLinksInEditor: conversation file links route to the editor");
+    } else if (!enabled && disposeOpenPatch !== null) {
+      disposeOpenPatch();
+      disposeOpenPatch = null;
     }
   };
   const syncFromSettings = () => {
     const snap = settingsScope.getSnapshot();
     if (snap.status !== "ready") return false;
-    setLinkInterceptor(snap.value?.openLinksInEditor === true);
+    setOpenLinkRoute(snap.value?.openLinksInEditor === true);
     return true;
   };
   const getSessionCwd = () => {
@@ -3745,7 +3715,7 @@ function apply(ctx) {
     if (current3 === void 0 || current3 === null) return void 0;
     return snapshot3?.byId?.[current3]?.cwd ?? void 0;
   };
-  const openInEditor = async (path) => {
+  const tryOpen = async (path) => {
     const remote = ctx.get("remote.fileManager");
     if (remote === void 0) return false;
     try {
@@ -3772,23 +3742,6 @@ function apply(ctx) {
       return false;
     }
   };
-  const openNative = async (absPath) => {
-    const workspaces = ctx.get("workspaces");
-    if (workspaces === void 0) throw new Error("workspaces service unavailable");
-    await workspaces.openPath(absPath);
-  };
-  const handlers = {
-    getCwd: getSessionCwd,
-    openInEditor,
-    openNative,
-    onFail: (path, error) => {
-      ctx.logger?.warn?.(
-        "[dsh-file] failed to open file link",
-        path,
-        error instanceof Error ? error.message : error
-      );
-    }
-  };
   void mountRemote.then(() => {
     if (unloaded) return;
     const remote = ctx.get("remote.fileManager");
@@ -3797,7 +3750,7 @@ function apply(ctx) {
     void (async () => {
       try {
         const { openLinksInEditor } = unwrap(await remote.getConfig());
-        setLinkInterceptor(openLinksInEditor);
+        setOpenLinkRoute(openLinksInEditor);
       } catch (error) {
         ctx.logger?.warn?.(
           "[dsh-file] could not read openLinksInEditor (interceptor stays off)",
@@ -3811,9 +3764,9 @@ function apply(ctx) {
     unloaded = true;
     disposeSettingsSync();
     closePanel();
-    if (disposeLinkInterceptor !== null) {
-      disposeLinkInterceptor();
-      disposeLinkInterceptor = null;
+    if (disposeOpenPatch !== null) {
+      disposeOpenPatch();
+      disposeOpenPatch = null;
     }
   }, "dsh-file: panel cleanup");
   void mountRemote;
