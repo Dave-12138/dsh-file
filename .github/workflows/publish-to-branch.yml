@@ -1,0 +1,84 @@
+# Publishes the built plugin artifacts (dist/, package.json, cordis.patch.yml,
+# README.md) to the publish branch on every push to master.
+#
+# Why a separate branch: the dsh plugin manager installs GitHub-hosted plugins
+# straight from a git reference (github:<owner>/<repo>#<branch>), and only the
+# artifact-bearing branch is installable without a local build. master keeps
+# source + tests and excludes dist/ (see .gitignore); the publish branch carries
+# exactly what `dsh plugin add` needs: dist/, package.json (with the exports /
+# dsh.client metadata), cordis.patch.yml and README.md.
+#
+# Shape mirrors dsh-thinking-levels-settings/.github/workflows/ci.yml: build on
+# push, then overwrite the publish branch with the assembled tree. Publishing is
+# serialized (concurrency group) so two pushes cannot race a non-fast-forward
+# failure, and only master triggers it - dev/PR pushes and the workflow's own
+# push to publish never republish.
+
+name: publish-to-branch
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build host + client bundles
+        run: node build.mjs
+
+      - name: Run tests
+        run: npm test
+
+      - name: Verify runtime artifacts
+        run: |
+          test -f dist/index.js
+          test -f dist/client.js
+          test -f dist/typert.host.js
+
+      - name: Assemble publishable tree
+        run: |
+          mkdir -p ../publish
+          cp package.json cordis.patch.yml README.md ../publish/
+          cp -R dist ../publish/dist
+
+      - name: Overwrite publish branch with build output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin publish || true
+          if git rev-parse -q --verify refs/remotes/origin/publish >/dev/null 2>&1; then
+            git checkout -B staging refs/remotes/origin/publish
+          else
+            git checkout --orphan staging
+          fi
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a ../publish/. .
+          git add -A
+          if git diff --cached --quiet; then
+            echo "build output unchanged, nothing to publish"
+            exit 0
+          fi
+          git commit -m "chore: publish build artifacts (${{ github.sha }})"
+          git push origin staging:publish
