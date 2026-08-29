@@ -1,0 +1,28 @@
+# dsh-file bundle patch: registers the file manager plugin.
+#
+# A single loader row: `name: @rose43/dsh-file` resolves the package main
+# (dist/index.js), whose default export is the FileManagerGateway
+# (TypertRemoteService) class — the host half. The browser half is discovered
+# automatically: dsh-client-modules scans loader entries whose package
+# declares `dsh.client` + `exports["./client"]`, and this package does, so
+# dist/client.js is served at /plugins/@rose43/dsh-file/client.js and seeded into
+# window.__DSH_BOOT__.
+#
+# `root` is only the FALLBACK root before a session pins one: when the file
+# manager opens, the browser resolves the current conversation's workspace
+# directory (SessionHeader.cwd) and re-pins the gateway root via the
+# `setRoot` RPC, so the tree always reflects the ACTIVE session's workspace
+# rather than the directory `dsh web` was launched from. Paths outside the
+# currently pinned root are rejected by the host.
+#
+# `openLinksInEditor` (default false) routes conversation file links
+# (produced-files chips and inline file mentions) into this plugin's editor
+# instead of the host's native opener. Keep it off unless you want that
+# behavior; address bugs #1286 / #3866 relate to the native opener failing
+# silently on headless / WSL2 hosts.
+- insert:
+    - id: '@rose43/dsh-file'
+      name: '@rose43/dsh-file'
+      config:
+        root: !!js process.cwd()
+        openLinksInEditor: false
