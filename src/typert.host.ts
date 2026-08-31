@@ -46,7 +46,7 @@ interface Invocation {
   parameters: Array<{ name: string; wire: string; source: 'json'; codec: StrictCodec }>;
   result: StrictCodec;
 }
-
+import pkg from "../package.json" with { type: "json" };
 /**
  * Build one direct invocation whose flat JSON parameters are exactly the wire
  * fields the client sends (the SRC-descriptor contract: parameter names equal
@@ -55,7 +55,7 @@ interface Invocation {
  */
 function build(method: string, params: string[]): Invocation {
   return {
-    id: `@rose43/dsh-file#fileManager/${method}`,
+    id: `${pkg.name}#fileManager/${method}`,
     service: 'fileManager',
     namespace: 'fileManager',
     method,
@@ -66,7 +66,7 @@ function build(method: string, params: string[]): Invocation {
 }
 
 export const TYPERT = {
-  package: '@rose43/dsh-file',
+  package: pkg.name,
   face: 'host' as const,
   schemas: [],
   invocations: [

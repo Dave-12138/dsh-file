@@ -9,9 +9,9 @@ import { TYPERT } from '../src/typert.host.ts';
  * against a different `@deepseek-ai/dsh-typert-protocol` instance (tsx/source
  * mode), so a malformed manifest must fail loudly at build time.
  */
-
+import pkg from "../package.json" with { type: "json" };
 test('TYPERT 声明归属与 host 面', () => {
-  assert.equal(TYPERT.package, '@rose43/dsh-file');
+  assert.equal(TYPERT.package, pkg.name);
   assert.equal(TYPERT.face, 'host');
   assert.ok(Array.isArray(TYPERT.schemas));
   assert.ok(Array.isArray(TYPERT.model.services));
@@ -36,7 +36,7 @@ test('invocations 覆盖全部 13 个端点，且每个结构合法', () => {
   assert.equal(TYPERT.invocations.length, methods.length);
 
   for (const inv of TYPERT.invocations) {
-    assert.ok(inv.id.startsWith('@rose43/dsh-file#fileManager/'), `${inv.id} id 前缀`);
+    assert.ok(inv.id.startsWith(pkg.name + '#fileManager/'), `${inv.id} id 前缀`);
     assert.equal(inv.service, 'fileManager');
     assert.equal(inv.namespace, 'fileManager');
     assert.ok(typeof inv.method === 'string' && inv.method.length > 0);
