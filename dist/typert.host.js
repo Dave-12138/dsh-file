@@ -28,6 +28,7 @@ const passthroughSchema = { _zod: true, parse: (value) => value };
 function codec(typeSymbol) {
     return { mode: 'strict', typeSymbol, schema: passthroughSchema };
 }
+import pkg from "../package.json" with { type: "json" };
 /**
  * Build one direct invocation whose flat JSON parameters are exactly the wire
  * fields the client sends (the SRC-descriptor contract: parameter names equal
@@ -36,7 +37,7 @@ function codec(typeSymbol) {
  */
 function build(method, params) {
     return {
-        id: `@rose43/dsh-file#fileManager/${method}`,
+        id: `${pkg.name}#fileManager/${method}`,
         service: 'fileManager',
         namespace: 'fileManager',
         method,
@@ -46,7 +47,7 @@ function build(method, params) {
     };
 }
 export const TYPERT = {
-    package: '@rose43/dsh-file',
+    package: pkg.name,
     face: 'host',
     schemas: [],
     invocations: [
