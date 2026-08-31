@@ -21,8 +21,8 @@
 # behavior; address bugs #1286 / #3866 relate to the native opener failing
 # silently on headless / WSL2 hosts.
 - insert:
-    - id: '@rose43/dsh-file'
-      name: '@rose43/dsh-file'
+    - id: '@dave_12138/dsh-file'
+      name: '@dave_12138/dsh-file'
       config:
         root: !!js process.cwd()
         openLinksInEditor: false
