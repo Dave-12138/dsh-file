@@ -28,10 +28,10 @@ function assertStrictCodec(codec: unknown, where: string): void {
   assert.equal(typeof c.schema.parse, 'function', `${where} codec.schema.parse 必须是函数`);
 }
 
-test('invocations 覆盖全部 12 个端点，且每个结构合法', () => {
+test('invocations 覆盖全部 13 个端点，且每个结构合法', () => {
   const methods = [
     'readDataUrl', 'listDir', 'readText', 'writeText', 'createFile',
-    'createDirectory', 'rename', 'delete', 'stat', 'resolve', 'getRoot', 'setRoot',
+    'createDirectory', 'rename', 'delete', 'stat', 'resolve', 'getRoot', 'setRoot', 'getConfig',
   ];
   assert.equal(TYPERT.invocations.length, methods.length);
 
@@ -61,6 +61,7 @@ test('端点的参数集与网关方法签名一致', () => {
     TYPERT.invocations.map((inv) => [`${inv.method}`, inv.parameters.map((p) => p.name)]),
   );
   assert.deepEqual(byId['getRoot'], []);
+  assert.deepEqual(byId['getConfig'], []);
   assert.deepEqual(byId['writeText'], ['path', 'content']);
   assert.deepEqual(byId['rename'], ['from', 'to']);
   assert.deepEqual(byId['readText'], ['path']);

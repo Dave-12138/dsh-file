@@ -19,9 +19,23 @@
  */
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import type { Context } from '@deepseek-ai/cordis';
+import { settingsNamespace } from '@deepseek-ai/dsh-settings';
+import Schema from '@deepseek-ai/schemastery';
 import * as fs from 'node:fs/promises';
 import * as nodePath from 'node:path';
 import { mimeOf } from './mime.js';
+
+/** Settings namespace for the dsh-file preference section (mirrored by the client). */
+export const FILE_SETTINGS_NS = settingsNamespace('dsh-file');
+
+/** Root fallback before any session pin (same default as the entry `config.root`). */
+const FILE_ROOT_DEFAULT = process.cwd();
+
+/** Settings schema for dsh-file: root fallback + the editor link flag. */
+const FILE_SETTINGS_SCHEMA = Schema.object({
+  root: Schema.string().default(FILE_ROOT_DEFAULT),
+  openLinksInEditor: Schema.boolean().default(false),
+});
 
 /** One directory entry in a listing. */
 export interface FileEntry {
@@ -89,14 +103,46 @@ export async function resolveInside(root: string, requested: string): Promise<st
  * fields the client sends (SRC descriptor contract).
  */
 export class FileManagerGateway extends TypertRemoteService {
-  static inject: string[] = [];
+  static inject: string[] = ['settings'];
 
   /** Workspace root served by the gateway; re-pinnable via the setRoot RPC (falls back to config/process.cwd()). */
   private root: string;
 
-  constructor(ctx: Context, config: { root?: string } = {}) {
+  /**
+   * Optional switch: route conversation file links (produced chips / inline
+   * mentions) into this plugin's editor instead of the host's native opener.
+   * Off by default; enable with `openLinksInEditor: true` on the plugin row or
+   * in the settings section (live, no restart).
+   */
+  private openLinksInEditor: boolean;
+
+  /** True once a session pinned the root via setRoot; a session pin beats settings. */
+  private pinned = false;
+
+  constructor(ctx: Context, config: { root?: string; openLinksInEditor?: boolean } = {}) {
     super(ctx, 'fileManager');
-    this.root = nodePath.resolve(config.root ?? process.cwd());
+    this.root = nodePath.resolve(config.root ?? FILE_ROOT_DEFAULT);
+    this.openLinksInEditor = config.openLinksInEditor === true;
+    // Register the dsh-file settings namespace: schema defaults, then the entry
+    // config (base), then the user document (edited in 设置 → 插件). The watch
+    // re-applies the resolved value live, so a save in the settings card takes
+    // effect without a restart.
+    const settings = ctx.settings;
+    const scope = settings?.register(FILE_SETTINGS_NS, FILE_SETTINGS_SCHEMA, {
+      base: { root: this.root, openLinksInEditor: this.openLinksInEditor },
+      applies: 'live',
+    });
+    if (scope !== undefined) {
+      const applyResolved = () => {
+        const resolved = (scope.get() ?? {}) as { root?: string; openLinksInEditor?: boolean };
+        if (!this.pinned && typeof resolved.root === 'string' && resolved.root !== '') {
+          this.root = nodePath.resolve(resolved.root);
+        }
+        this.openLinksInEditor = resolved.openLinksInEditor === true;
+      };
+      applyResolved();
+      scope.watch(() => applyResolved());
+    }
     // Diagnostics: confirm the gateway is instantiated by the cordis loader.
     console.log(`[dsh-file] FileManagerGateway constructed, root=${this.root}`);
   }
@@ -278,6 +324,19 @@ export class FileManagerGateway extends TypertRemoteService {
   }
 
   /**
+   * Return the gateway's runtime configuration the browser half needs.
+   *
+   * The dynamic client half receives the loader row only at activation time,
+   * so behavior switches are exposed as an RPC the host owns (like getRoot) —
+   * currently just `openLinksInEditor`, which routes conversation file links
+   * into this plugin's editor instead of the host's native opener.
+   */
+  @Remote('getConfig')
+  async getConfig(): Promise<{ openLinksInEditor: boolean }> {
+    return { openLinksInEditor: this.openLinksInEditor };
+  }
+
+  /**
    * Re-pin the workspace root the gateway serves. The browser calls this with
    * the CURRENT conversation's workspace directory (SessionHeader.cwd) when
    * the file manager opens, so the tree always reflects the session's
@@ -292,6 +351,7 @@ export class FileManagerGateway extends TypertRemoteService {
       : nodePath.resolve(this.root, path);
     const st = await fs.stat(abs);
     if (!st.isDirectory()) throw new Error(`not a directory: ${abs}`);
+    this.pinned = true;
     this.root = await fs.realpath(abs);
     return { path: this.root };
   }
