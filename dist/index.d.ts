@@ -19,8 +19,15 @@
  */
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import type { Context } from '@deepseek-ai/cordis';
-/** Settings namespace for the dsh-file preference section (mirrored by the client). */
-export declare const FILE_SETTINGS_NS: import("@deepseek-ai/dsh-settings").SettingsNamespace;
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings';
+/**
+ * Settings namespace for the dsh-file preference section (mirrored by the client).
+ * dsh-settings ≥ 0.1.2-rc.1 removed the runtime `settingsNamespace()` helper:
+ * namespaces are plain lowercase-hyphenated literals, branded at the type level
+ * with `SettingsNamespace`. This type import also loads the package's cordis
+ * augmentation (`ctx.settings`), so it must stay.
+ */
+export declare const FILE_SETTINGS_NS: SettingsNamespace;
 /** One directory entry in a listing. */
 export interface FileEntry {
     name: string;
