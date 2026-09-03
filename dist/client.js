@@ -2625,6 +2625,50 @@ function languageOf(path) {
 }
 
 // src/client/openLinks.ts
+function patchOpenWorkspacePath(session, handlers) {
+  if (session === void 0 || typeof session.openWorkspacePath !== "function") return () => {
+  };
+  const descriptor = Object.getOwnPropertyDescriptor(session, "openWorkspacePath");
+  let active = true;
+  if (descriptor !== void 0 && typeof descriptor.get === "function") {
+    const originalGet = descriptor.get;
+    Object.defineProperty(session, "openWorkspacePath", {
+      configurable: true,
+      enumerable: descriptor.enumerable !== false,
+      get() {
+        const original2 = originalGet.call(this);
+        if (!active) return original2;
+        return async (request, signal) => {
+          try {
+            const handled = await handlers.tryOpen(request.path);
+            if (!handled) return await original2(request, signal);
+            return { ok: true, value: { opened: true } };
+          } catch {
+            return await original2(request, signal);
+          }
+        };
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }
+  const original = session.openWorkspacePath.bind(session);
+  session.openWorkspacePath = async (request, signal) => {
+    if (!active) return original(request, signal);
+    try {
+      const handled = await handlers.tryOpen(request.path);
+      if (!handled) return original(request, signal);
+      return { ok: true, value: { opened: true } };
+    } catch {
+      return original(request, signal);
+    }
+  };
+  return () => {
+    active = false;
+    session.openWorkspacePath = original;
+  };
+}
 function patchOpenPath(workspaces, handlers) {
   if (workspaces === void 0 || typeof workspaces.openPath !== "function") return () => {
   };
@@ -2643,6 +2687,16 @@ function patchOpenPath(workspaces, handlers) {
   return () => {
     active = false;
     workspaces.openPath = original;
+  };
+}
+function patchOpenLinks(seam, handlers) {
+  if (seam.session !== void 0 && typeof seam.session.openWorkspacePath === "function") {
+    return patchOpenWorkspacePath(seam.session, handlers);
+  }
+  if (seam.workspaces !== void 0 && typeof seam.workspaces.openPath === "function") {
+    return patchOpenPath(seam.workspaces, handlers);
+  }
+  return () => {
   };
 }
 
@@ -3692,8 +3746,11 @@ function apply(ctx) {
   let unloaded = false;
   const setOpenLinkRoute = (enabled) => {
     if (enabled && disposeOpenPatch === null) {
-      disposeOpenPatch = patchOpenPath(
-        ctx.get("workspaces"),
+      disposeOpenPatch = patchOpenLinks(
+        {
+          session: ctx.get("remote.session"),
+          workspaces: ctx.get("workspaces")
+        },
         { tryOpen }
       );
       ctx.logger?.info?.("[dsh-file] openLinksInEditor: conversation file links route to the editor");
