@@ -45,15 +45,15 @@
     "react": "^18.3.1"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-typert-protocol": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-settings": "^0.1.1-rc.2",
-    "@deepseek-ai/schemastery": "^3.18.1"
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-typert-protocol": "*",
+    "@deepseek-ai/dsh-settings": "*",
+    "@deepseek-ai/schemastery": "*"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-typert-protocol": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-settings": "^0.1.1-rc.2",
+    "@deepseek-ai/dsh-typert-protocol": "^0.1.2-rc.1",
+    "@deepseek-ai/dsh-settings": "^0.1.2-rc.1",
     "@deepseek-ai/schemastery": "^3.18.1",
     "@types/node": "^20.19.43",
     "@types/react": "^18.3.31",
@@ -61,5 +61,8 @@
     "esbuild": "^0.25.12",
     "typescript": "^5.9.3"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
 }
