@@ -9,6 +9,14 @@
  * both the Monaco editor and the surrounding chrome. The editor is Monaco
  * (uncontrolled, keyed by path); falls back to a plain textarea when the CDN
  * is unreachable.
+ *
+ * Both render branches mark their root with data-conversation-composer-overlay
+ * (the marker dsh-client-ui-conversation's own 轨迹/trajectory view uses):
+ * the conversation root's stylesheet hides its two [data-width-handle]
+ * resizers under .wSkVaW_root:has([data-conversation-composer-overlay]), so
+ * while this editor view occupies the center column the width handles stop
+ * floating over its left/right edges. Switching to another view unmounts the
+ * editor, the marker disappears, and the handles return.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
@@ -103,7 +111,7 @@ export function FileEditorView({ remote, t }: { remote: FileManagerRemote; t?: (
   // No file open yet: idle hint instead of an empty pane.
   if (active === undefined) {
     return (
-      <div className="dshf-editor-view" style={themeVars as React.CSSProperties}>
+      <div className="dshf-editor-view" data-conversation-composer-overlay="" style={themeVars as React.CSSProperties}>
         <div className="dshf-editor-toolbar">
           <span className="dshf-title">{t ? t('view.label') : '文件'}</span>
           <span className="dshf-spacer" />
@@ -115,7 +123,7 @@ export function FileEditorView({ remote, t }: { remote: FileManagerRemote; t?: (
   }
 
   return (
-    <div className="dshf-editor-view" style={themeVars as React.CSSProperties}>
+    <div className="dshf-editor-view" data-conversation-composer-overlay="" style={themeVars as React.CSSProperties}>
       <div className="dshf-editor-toolbar">
         <span className={cx('dshf-tabname', active.dirty && 'dshf-dirty')} title={active.path}>
           {active.dirty ? '● ' : ''}{active.path.split('/').pop()}

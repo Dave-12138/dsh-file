@@ -23,7 +23,7 @@ import { TYPERT_REMOTE, unwrap, type FileManagerRemote } from './remote.ts';
 import { FileManagerPanel, type FileManagerSessionHook } from './FileManagerPanel.tsx';
 import { FileEditorView } from './FileEditorView.tsx';
 import { isEditorViewActive, subscribeEditorViewActive, openTab, setWorkspaceRoot } from './store.ts';
-import { patchOpenPath } from './openLinks.ts';
+import { patchOpenLinks, type OpenLinkSeam, type SessionNamespace } from './openLinks.ts';
 import { FileManagerSettingsCard, injectSettingsCardStyle, type FileManagerSettingsScope } from './settingsCard.tsx';
 import styles from './styles.css';
 
@@ -226,20 +226,27 @@ export function apply(ctx: Context) {
 
   // ── optional: route conversation file links into this editor ────────────
   // DSH's file-open affordances — produced chips, inline mentions, tool-call
-  // file rows — all converge on the client service method `workspaces.openPath`
-  // (the chat view's `openFile` leaf). With the config 'openLinksInEditor: true'
-  // (default off), this plugin swaps that method (service-layer substitution,
-  // not DOM interception): the editor gets first refusal, and anything it
-  // cannot handle falls back to the original native opener. On headless /
-  // WSL2 / desktop-less hosts that native open can silently fail (dsh issues
-  // #1286 / #3866), which is why the editor route exists.
+  // file rows — all converge on the chat view's `openFile` leaf. Which service
+  // that leaf calls changed across DSH releases: since 0.1.2-rc.1 it calls
+  // `ctx.remote.session.openWorkspacePath` (an RPC to the host's native opener;
+  // `workspaces.openPath` was removed), while 0.1.1-rc.2 and earlier went
+  // through `workspaces.openPath`. With the config 'openLinksInEditor: true'
+  // (default off), this plugin patches whichever seam is present (session first,
+  // workspaces as fallback — service-layer substitution, not DOM interception):
+  // the editor gets first refusal, and anything it cannot handle falls back to
+  // the original native opener. On headless / WSL2 / desktop-less hosts that
+  // native open can silently fail (dsh issues #1286 / #3866), which is why the
+  // editor route exists.
   let disposeOpenPatch: (() => void) | null = null;
   let unloaded = false;
 
   const setOpenLinkRoute = (enabled: boolean) => {
     if (enabled && disposeOpenPatch === null) {
-      disposeOpenPatch = patchOpenPath(
-        ctx.get('workspaces') as { openPath(path: string): Promise<unknown> } | undefined,
+      disposeOpenPatch = patchOpenLinks(
+        {
+          session: ctx.get('remote.session') as unknown as SessionNamespace | undefined,
+          workspaces: ctx.get('workspaces') as { openPath(path: string): Promise<unknown> } | undefined,
+        },
         { tryOpen },
       );
       ctx.logger?.info?.('[dsh-file] openLinksInEditor: conversation file links route to the editor');
@@ -290,7 +297,7 @@ export function apply(ctx: Context) {
       openPanel();
       return true;
     } catch {
-      return false; // editor cannot show it — the patched openPath falls back
+      return false; // editor cannot show it — the patched openWorkspacePath falls back
     }
   };
 

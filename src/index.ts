@@ -19,14 +19,20 @@
  */
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import type { Context } from '@deepseek-ai/cordis';
-import { settingsNamespace } from '@deepseek-ai/dsh-settings';
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings';
 import Schema from '@deepseek-ai/schemastery';
 import * as fs from 'node:fs/promises';
 import * as nodePath from 'node:path';
 import { mimeOf } from './mime.js';
 
-/** Settings namespace for the dsh-file preference section (mirrored by the client). */
-export const FILE_SETTINGS_NS = settingsNamespace('dsh-file');
+/**
+ * Settings namespace for the dsh-file preference section (mirrored by the client).
+ * dsh-settings ≥ 0.1.2-rc.1 removed the runtime `settingsNamespace()` helper:
+ * namespaces are plain lowercase-hyphenated literals, branded at the type level
+ * with `SettingsNamespace`. This type import also loads the package's cordis
+ * augmentation (`ctx.settings`), so it must stay.
+ */
+export const FILE_SETTINGS_NS = 'dsh-file' as unknown as SettingsNamespace;
 
 /** Root fallback before any session pin (same default as the entry `config.root`). */
 const FILE_ROOT_DEFAULT = process.cwd();
