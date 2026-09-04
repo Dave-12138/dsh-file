@@ -12,6 +12,17 @@
 
 递增主版本号时，次版本号和修订号归零；递增次版本号时，修订号归零。
 
+### 发布清单（每次 bump 必须全部同步）
+
+版本号 bump 或发布时，**中英文 README 必须一起更新**，不要只改一份：
+
+- `package.json` — `version` 字段
+- `package-lock.json` — 顶部与 `packages[""]` 的 `version` 字段
+- `README.md`（中文）— 徽章版本号、npm 安装包名、Release tarball 安装示例文件名
+- `README.en.md`（英文）— 同样三处（徽章版本号、npm 安装包名、tarball 文件名），与中文版保持一致
+
+npm 安装包名已从 `dsh-file` 改为 scoped 的 `@rose43/dsh-file`，tarball 文件名形如 `rose43-dsh-file-<版本>.tgz`——中英文示例都不应再出现旧的 `dsh-file` / `dsh-file-X.Y.Z.tgz` 写法。
+
 ## 项目结构
 
 - `src/index.ts` — host 半（Node 进程，文件系统 RPC），tsc 构建为 `dist/index.js`
